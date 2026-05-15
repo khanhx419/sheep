@@ -1,3 +1,0 @@
-# sheep
-
-An empty project.
