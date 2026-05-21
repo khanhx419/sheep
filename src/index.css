@@ -643,3 +643,30 @@ h1, h2, h3 {
   align-items: center;
   justify-content: center;
 }
+
+/* --- Notebook --- */
+.notebook-modal {
+  border: 1px solid rgba(177, 151, 252, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(177, 151, 252, 0.1);
+}
+
+.notebook-stat {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notebook-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.notebook-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}

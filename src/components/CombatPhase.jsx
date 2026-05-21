@@ -192,8 +192,8 @@ export default function CombatPhase() {
   };
 
   const handleSwitchWeapon = () => {
+    dispatch({ type: 'SWITCH_WEAPON' });
     const newWeapon = state.player.weapon === 'tool' ? 'gun' : 'tool';
-    // Trực tiếp đổi weapon qua state (cần thêm action hoặc xử lý local)
     addLog(`🔄 Chuyển sang ${newWeapon === 'gun' ? 'Súng' : 'Nông cụ'}`);
   };
 
@@ -206,7 +206,7 @@ export default function CombatPhase() {
   if (!wolf) return null;
 
   const hpPercent = Math.max(0, (state.player.hp / state.player.maxHp) * 100);
-  const wolfHpPercent = Math.max(0, (wolf.hp / (wolf.hp + 1)) * 100); // rough display
+  const wolfHpPercent = Math.max(0, (wolf.hp / (wolf.maxHp || wolf.hp || 1)) * 100);
   const armorPercent = state.player.armor
     ? (state.player.armor.durability / state.player.armor.maxDurability) * 100
     : 0;
@@ -220,7 +220,7 @@ export default function CombatPhase() {
         </h2>
         <div className="bar-container bar-hp" style={{ maxWidth: '300px', margin: '8px auto' }}>
           <div className="bar-fill" style={{ width: `${wolfHpPercent}%` }} />
-          <span className="bar-label">HP: {wolf.hp}</span>
+          <span className="bar-label">HP: {wolf.hp}/{wolf.maxHp || '?'}</span>
         </div>
       </div>
 
@@ -326,6 +326,10 @@ export default function CombatPhase() {
             disabled={!state.dog.available || dogUsed}
           >
             🐕 Gọi chó
+          </button>
+
+          <button className="btn btn-ghost" onClick={handleSwitchWeapon}>
+            🔄 {state.player.weapon === 'gun' ? 'Nông cụ' : 'Súng'}
           </button>
         </div>
       )}

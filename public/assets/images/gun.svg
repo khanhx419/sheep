@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Barrel -->
+  <rect x="2" y="10" width="18" height="5" rx="1" fill="#4a4a4a"/>
+  <!-- Barrel tip -->
+  <rect x="1" y="9" width="3" height="7" rx="0.5" fill="#555"/>
+  <!-- Slide -->
+  <rect x="6" y="8" width="14" height="3" rx="1" fill="#3a3a3a"/>
+  <!-- Body -->
+  <rect x="14" y="10" width="10" height="8" rx="1" fill="#4a4a4a"/>
+  <!-- Trigger guard -->
+  <path d="M16 18 Q16 24 20 24 L22 24 L22 18" stroke="#3a3a3a" stroke-width="1.5" fill="none"/>
+  <!-- Trigger -->
+  <rect x="18" y="18" width="1.5" height="4" rx="0.5" fill="#333"/>
+  <!-- Grip -->
+  <path d="M20 18 L22 28 L28 28 L26 18Z" fill="#cc6633" rx="1"/>
+  <!-- Grip texture -->
+  <line x1="22" y1="20" x2="26" y2="20" stroke="#aa5522" stroke-width="0.5"/>
+  <line x1="22.3" y1="22" x2="26.5" y2="22" stroke="#aa5522" stroke-width="0.5"/>
+  <line x1="22.6" y1="24" x2="27" y2="24" stroke="#aa5522" stroke-width="0.5"/>
+  <line x1="22.8" y1="26" x2="27.5" y2="26" stroke="#aa5522" stroke-width="0.5"/>
+  <!-- Sight -->
+  <rect x="8" y="7" width="2" height="2" rx="0.5" fill="#333"/>
+</svg>

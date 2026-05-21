@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Casing -->
+  <rect x="11" y="14" width="10" height="14" rx="1" fill="#ffd700"/>
+  <!-- Casing darker band -->
+  <rect x="11" y="24" width="10" height="4" rx="1" fill="#daa520"/>
+  <!-- Casing shine -->
+  <rect x="12" y="15" width="3" height="12" rx="0.5" fill="#ffe44d" opacity="0.5"/>
+  <!-- Bullet tip -->
+  <path d="M11 14 Q11 6 16 3 Q21 6 21 14Z" fill="#cd853f"/>
+  <!-- Bullet tip shine -->
+  <path d="M13 13 Q13 8 16 5" stroke="#daa06d" stroke-width="1" fill="none" opacity="0.6"/>
+  <!-- Primer circle -->
+  <circle cx="16" cy="27" r="2" fill="#cc9900"/>
+  <circle cx="16" cy="27" r="1" fill="#daa520"/>
+</svg>

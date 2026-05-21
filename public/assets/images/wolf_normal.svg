@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Body -->
+  <ellipse cx="32" cy="38" rx="20" ry="14" fill="#666666"/>
+  <!-- Darker back -->
+  <ellipse cx="34" cy="33" rx="16" ry="8" fill="#555555"/>
+  <!-- Tail -->
+  <path d="M52 34 Q60 28 58 22" stroke="#555" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Back legs -->
+  <rect x="40" y="48" width="4.5" height="11" rx="2" fill="#555"/>
+  <rect x="46" y="48" width="4.5" height="11" rx="2" fill="#555"/>
+  <!-- Front legs -->
+  <rect x="16" y="48" width="4.5" height="11" rx="2" fill="#555"/>
+  <rect x="22" y="48" width="4.5" height="11" rx="2" fill="#555"/>
+  <!-- Head -->
+  <ellipse cx="16" cy="26" rx="12" ry="10" fill="#666666"/>
+  <!-- Snout -->
+  <ellipse cx="8" cy="29" rx="8" ry="5" fill="#777777"/>
+  <!-- Nose -->
+  <ellipse cx="4" cy="27" rx="2.5" ry="2" fill="#222"/>
+  <!-- Mouth / snarl -->
+  <path d="M4 29 Q8 34 14 30" stroke="#444" stroke-width="1" fill="none"/>
+  <!-- Teeth -->
+  <polygon points="6,29 7,32 8,29" fill="white"/>
+  <polygon points="10,29.5 11,32.5 12,29.5" fill="white"/>
+  <!-- Eyes (menacing red) -->
+  <circle cx="13" cy="23" r="3" fill="#cc3333"/>
+  <circle cx="21" cy="22" r="3" fill="#cc3333"/>
+  <circle cx="13.5" cy="23" r="1.5" fill="#1a1a1a"/>
+  <circle cx="21.5" cy="22" r="1.5" fill="#1a1a1a"/>
+  <!-- Eye glow -->
+  <circle cx="13" cy="23" r="4" fill="#cc3333" opacity="0.15"/>
+  <circle cx="21" cy="22" r="4" fill="#cc3333" opacity="0.15"/>
+  <!-- Ears (sharp) -->
+  <polygon points="8,20 3,6 15,16" fill="#555"/>
+  <polygon points="20,18 22,4 28,15" fill="#555"/>
+  <!-- Inner ear -->
+  <polygon points="9,18 5,9 14,16" fill="#777"/>
+  <polygon points="21,17 23,7 26,15" fill="#777"/>
+  <!-- Label -->
+  <text x="32" y="63" text-anchor="middle" font-family="Arial, sans-serif" font-size="5" fill="#999">Sói</text>
+</svg>

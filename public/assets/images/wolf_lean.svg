@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Thin body -->
+  <ellipse cx="32" cy="38" rx="18" ry="10" fill="#996644"/>
+  <!-- Visible ribs -->
+  <path d="M24 33 Q26 30 28 33" stroke="#886633" stroke-width="0.8" fill="none"/>
+  <path d="M29 32 Q31 29 33 32" stroke="#886633" stroke-width="0.8" fill="none"/>
+  <path d="M34 33 Q36 30 38 33" stroke="#886633" stroke-width="0.8" fill="none"/>
+  <path d="M24 37 Q26 34 28 37" stroke="#886633" stroke-width="0.8" fill="none"/>
+  <path d="M29 36 Q31 33 33 36" stroke="#886633" stroke-width="0.8" fill="none"/>
+  <path d="M34 37 Q36 34 38 37" stroke="#886633" stroke-width="0.8" fill="none"/>
+  <!-- Darker spine -->
+  <path d="M14 30 Q32 26 52 32" stroke="#775533" stroke-width="1.5" fill="none"/>
+  <!-- Tail (thin, drooping) -->
+  <path d="M50 36 Q56 38 54 44" stroke="#886633" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Back legs (thin) -->
+  <rect x="40" y="45" width="3.5" height="13" rx="1.5" fill="#886633"/>
+  <rect x="46" y="45" width="3.5" height="13" rx="1.5" fill="#886633"/>
+  <!-- Front legs (thin) -->
+  <rect x="14" y="45" width="3.5" height="13" rx="1.5" fill="#886633"/>
+  <rect x="20" y="45" width="3.5" height="13" rx="1.5" fill="#886633"/>
+  <!-- Head (gaunt) -->
+  <ellipse cx="14" cy="26" rx="10" ry="9" fill="#996644"/>
+  <!-- Snout (elongated) -->
+  <ellipse cx="5" cy="28" rx="7" ry="4" fill="#aa7755"/>
+  <!-- Nose -->
+  <ellipse cx="1" cy="26.5" rx="2" ry="1.5" fill="#222"/>
+  <!-- Mouth -->
+  <path d="M2 28 Q6 33 12 29" stroke="#664422" stroke-width="0.8" fill="none"/>
+  <!-- Teeth -->
+  <polygon points="5,28 5.5,31 6,28" fill="#ddd"/>
+  <polygon points="8,28.5 8.5,31.5 9,28.5" fill="#ddd"/>
+  <!-- Eyes (hungry, sunken) -->
+  <circle cx="11" cy="23" r="2.5" fill="#ccaa33"/>
+  <circle cx="18" cy="22" r="2.5" fill="#ccaa33"/>
+  <circle cx="11.5" cy="23" r="1.2" fill="#1a1a1a"/>
+  <circle cx="18.5" cy="22" r="1.2" fill="#1a1a1a"/>
+  <!-- Sunken eye sockets -->
+  <ellipse cx="11" cy="23" rx="3.5" ry="3" fill="none" stroke="#775533" stroke-width="0.6"/>
+  <ellipse cx="18" cy="22" rx="3.5" ry="3" fill="none" stroke="#775533" stroke-width="0.6"/>
+  <!-- Ears -->
+  <polygon points="7,20 3,6 14,16" fill="#886633"/>
+  <polygon points="18,18 22,4 26,15" fill="#886633"/>
+  <!-- Hip bones visible -->
+  <circle cx="44" cy="34" r="2" fill="none" stroke="#886633" stroke-width="0.8"/>
+  <!-- Label -->
+  <text x="32" y="63" text-anchor="middle" font-family="Arial, sans-serif" font-size="4.5" fill="#886644">Sói gầy</text>
+</svg>

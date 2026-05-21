@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Sky -->
+  <rect width="400" height="400" fill="#87ceeb"/>
+  <!-- Sun -->
+  <circle cx="320" cy="80" r="45" fill="#FFD700" opacity="0.9"/>
+  <circle cx="320" cy="80" r="55" fill="#FFD700" opacity="0.2"/>
+  <circle cx="320" cy="80" r="65" fill="#FFD700" opacity="0.1"/>
+  <!-- Cloud 1 -->
+  <g opacity="0.9">
+    <ellipse cx="100" cy="90" rx="50" ry="25" fill="white"/>
+    <ellipse cx="140" cy="80" rx="40" ry="22" fill="white"/>
+    <ellipse cx="65" cy="85" rx="35" ry="20" fill="white"/>
+  </g>
+  <!-- Cloud 2 -->
+  <g opacity="0.8">
+    <ellipse cx="250" cy="140" rx="40" ry="20" fill="white"/>
+    <ellipse cx="280" cy="133" rx="35" ry="18" fill="white"/>
+    <ellipse cx="220" cy="137" rx="30" ry="16" fill="white"/>
+  </g>
+  <!-- Hills -->
+  <ellipse cx="100" cy="280" rx="180" ry="60" fill="#3a7a30"/>
+  <ellipse cx="330" cy="290" rx="150" ry="50" fill="#358028"/>
+  <!-- Ground -->
+  <rect y="280" width="400" height="120" fill="#2d5a27"/>
+  <!-- Grass tufts -->
+  <path d="M50 300 L55 280 L60 300" stroke="#3a7a30" stroke-width="2" fill="none"/>
+  <path d="M150 310 L155 290 L160 310" stroke="#3a7a30" stroke-width="2" fill="none"/>
+  <path d="M250 295 L255 275 L260 295" stroke="#3a7a30" stroke-width="2" fill="none"/>
+  <path d="M340 305 L345 285 L350 305" stroke="#3a7a30" stroke-width="2" fill="none"/>
+  <!-- Fence -->
+  <line x1="20" y1="275" x2="380" y2="275" stroke="#8B6914" stroke-width="3"/>
+  <line x1="20" y1="285" x2="380" y2="285" stroke="#8B6914" stroke-width="3"/>
+  <rect x="40" y="260" width="5" height="35" fill="#8B6914"/>
+  <rect x="120" y="260" width="5" height="35" fill="#8B6914"/>
+  <rect x="200" y="260" width="5" height="35" fill="#8B6914"/>
+  <rect x="280" y="260" width="5" height="35" fill="#8B6914"/>
+  <rect x="360" y="260" width="5" height="35" fill="#8B6914"/>
+  <!-- Label -->
+  <text x="200" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#1a3a14" font-weight="bold">Nông trại - Ban ngày</text>
+</svg>

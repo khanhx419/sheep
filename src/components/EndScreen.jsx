@@ -80,6 +80,12 @@ export default function EndScreen({ result }) {
             <span>🐺 Sói đã phát hiện</span>
             <span>{state.notebookUnlocked.length} loại</span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>🐺 Sói trà trộn</span>
+            <span style={{ color: state.infiltratedWolves.length > 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>
+              {state.infiltratedWolves.length} con
+            </span>
+          </div>
         </div>
       </div>
 

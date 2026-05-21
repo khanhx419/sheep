@@ -114,6 +114,16 @@ export function gameReducer(state, action) {
     case 'BUY_ITEM': {
       const { itemId, price } = action.payload;
       if (state.gold < price) return state;
+
+      // Đạn → cộng thẳng vào player.ammo, không vào inventory
+      if (itemId === 'ammo') {
+        return {
+          ...state,
+          gold: state.gold - price,
+          player: { ...state.player, ammo: state.player.ammo + 1 },
+        };
+      }
+
       const inv = [...state.inventory];
       const existing = inv.find(i => i.itemId === itemId);
       if (existing) {
@@ -198,8 +208,13 @@ export function gameReducer(state, action) {
       };
     }
 
-    case 'START_COMBAT':
-      return { ...state, phase: 'COMBAT' };
+    case 'START_COMBAT': {
+      // Lưu maxHp để tính phần trăm HP bar chính xác
+      const combatWolf = state.activeCombatWolf
+        ? { ...state.activeCombatWolf, maxHp: state.activeCombatWolf.maxHp || state.activeCombatWolf.hp }
+        : null;
+      return { ...state, phase: 'COMBAT', activeCombatWolf: combatWolf };
+    }
 
     // ========== COMBAT ==========
     case 'COMBAT_DAMAGE_PLAYER': {
@@ -284,6 +299,11 @@ export function gameReducer(state, action) {
       // Dog recovery
       const dogAvailable = newDay >= state.dog.exhaustedUntilDay;
 
+      // === Kiểm tra Lose Condition ngay sau khi sói ăn cừu ===
+      const totalRemainingWolves = [...state.infiltratedWolves, ...wolvesToSpawn].length;
+      const totalRemainingSheep = updatedSheep.length;
+      const isLose = totalRemainingSheep > 0 && totalRemainingWolves >= totalRemainingSheep * 0.5;
+
       return {
         ...state,
         day: newDay,
@@ -298,7 +318,7 @@ export function gameReducer(state, action) {
           stock: merchantStock,
         },
         dog: { ...state.dog, available: dogAvailable },
-        phase: 'FARM_DAY',
+        phase: isLose ? 'LOSE' : 'FARM_DAY',
         player: { ...state.player, hp: state.player.hp }, // HP không tự hồi
         messages: [...state.messages, ...messages].slice(-20), // Giữ 20 tin nhắn cuối
         nightResults: { investigated: [], foundWolves: [] },
@@ -326,6 +346,15 @@ export function gameReducer(state, action) {
         },
       };
     }
+
+    case 'SWITCH_WEAPON':
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          weapon: state.player.weapon === 'tool' ? 'gun' : 'tool',
+        },
+      };
 
     case 'ADD_MESSAGE':
       return {

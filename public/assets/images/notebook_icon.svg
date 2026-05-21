@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Book shadow -->
+  <rect x="6" y="4" width="21" height="26" rx="2" fill="#4a3020"/>
+  <!-- Book cover -->
+  <rect x="5" y="3" width="21" height="26" rx="2" fill="#8B6914"/>
+  <!-- Spine -->
+  <rect x="5" y="3" width="4" height="26" rx="1" fill="#6b4f10"/>
+  <!-- Pages (white edge visible) -->
+  <rect x="9" y="5" width="15" height="22" rx="1" fill="#f5f0e0"/>
+  <!-- Page lines -->
+  <line x1="11" y1="9" x2="22" y2="9" stroke="#ccc5b0" stroke-width="0.5"/>
+  <line x1="11" y1="12" x2="22" y2="12" stroke="#ccc5b0" stroke-width="0.5"/>
+  <line x1="11" y1="15" x2="22" y2="15" stroke="#ccc5b0" stroke-width="0.5"/>
+  <line x1="11" y1="18" x2="22" y2="18" stroke="#ccc5b0" stroke-width="0.5"/>
+  <line x1="11" y1="21" x2="22" y2="21" stroke="#ccc5b0" stroke-width="0.5"/>
+  <line x1="11" y1="24" x2="18" y2="24" stroke="#ccc5b0" stroke-width="0.5"/>
+  <!-- Bookmark ribbon -->
+  <rect x="20" y="3" width="2.5" height="8" fill="#cc3333"/>
+  <polygon points="20,11 21.25,9 22.5,11" fill="#cc3333"/>
+  <!-- Cover decoration -->
+  <rect x="6" y="13" width="2" height="6" rx="0.5" fill="#a07818"/>
+  <!-- Elastic band -->
+  <line x1="26" y1="8" x2="26" y2="25" stroke="#554422" stroke-width="1"/>
+</svg>

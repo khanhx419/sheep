@@ -29,10 +29,9 @@ export default function ShopScreen() {
       return;
     }
 
-    // Nếu là đạn → tăng ammo
+    // Nếu là đạn → reducer BUY_ITEM đã xử lý: trừ tiền + cộng player.ammo
     if (item.id === 'ammo') {
       dispatch({ type: 'BUY_ITEM', payload: { itemId: item.id, price: item.price } });
-      // Cần dispatch riêng để tăng ammo count (xử lý trong reducer)
       return;
     }
 
@@ -157,6 +156,28 @@ export default function ShopScreen() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Sell Farm (Win condition) */}
+        <div style={{ marginTop: 'var(--space-lg)', textAlign: 'center' }}>
+          <button
+            className="btn btn-success btn-lg"
+            onClick={() => dispatch({ type: 'SELL_FARM' })}
+            disabled={state.gold < state.targetGold}
+            style={{ width: '100%', maxWidth: '320px' }}
+          >
+            💰 Bán trang trại ({state.targetGold} Xu)
+          </button>
+          {state.gold < state.targetGold && (
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Cần thêm {state.targetGold - state.gold} Xu để bán trang trại
+            </p>
+          )}
+          {state.gold >= state.targetGold && (
+            <p style={{ fontSize: '12px', color: 'var(--accent-green)', marginTop: '8px' }} className="animate-pulse">
+              ✨ Đủ tiền rồi! Bán trang trại để chiến thắng!
+            </p>
+          )}
         </div>
       </div>
     </div>

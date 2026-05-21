@@ -6,10 +6,13 @@
 import { useGameState, useGameDispatch } from '../context/GameContext.jsx';
 import { processAdvanceDay } from '../systems/economySystem.js';
 import { saveGame } from '../reducers/gameReducer.js';
+import Notebook from './Notebook.jsx';
+import { useState } from 'react';
 
 export default function FarmDayPhase() {
   const state = useGameState();
   const dispatch = useGameDispatch();
+  const [showNotebook, setShowNotebook] = useState(false);
 
   const adultCount = state.sheep.filter(s => s.age === 'adult').length;
   const babyCount = state.sheep.filter(s => s.age === 'baby').length;
@@ -157,6 +160,16 @@ export default function FarmDayPhase() {
                   Cần thêm {state.targetGold - state.gold} Xu
                 </span>
               )}
+
+              <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '4px 0' }} />
+
+              <button
+                className="btn btn-ghost"
+                onClick={() => setShowNotebook(true)}
+                style={{ fontSize: '13px' }}
+              >
+                📖 Sổ tay chủ cũ ({state.notebookUnlocked.length})
+              </button>
             </div>
           </div>
 
@@ -182,6 +195,9 @@ export default function FarmDayPhase() {
           </div>
         </div>
       </div>
+
+      {/* Notebook Modal */}
+      {showNotebook && <Notebook onClose={() => setShowNotebook(false)} />}
     </div>
   );
 }
