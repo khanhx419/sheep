@@ -70,6 +70,7 @@ export function spawnWolvesForNight(day, sheepCount) {
     }
 
     evolved.id = _wolfIdCounter++;
+    evolved.fakeSheepId = 5000 + evolved.id; // ID giả để hiển thị chung với cừu
     evolved.penId = Math.floor(Math.random() * 2); // Random chuồng A hoặc B
 
     spawned.push(evolved);

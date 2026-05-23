@@ -23,13 +23,21 @@ export default function NightPhase() {
   };
 
   const handleInvestigate = (method) => {
-    if (state.player.energy <= 0 || !selectedSheep) return;
+    if (!selectedSheep) return;
 
-    // Dispatch energy cost
-    dispatch({
-      type: 'INVESTIGATE_PEN',
-      payload: { penId: selectedPen, method },
-    });
+    // Cạo lông KHÔNG tốn năng lượng (hoạt động nông trại)
+    const isShear = method === 'shear';
+
+    // Các phương pháp khác cần năng lượng
+    if (!isShear && state.player.energy <= 0) return;
+
+    // Dispatch energy cost (chỉ khi không phải cạo lông)
+    if (!isShear) {
+      dispatch({
+        type: 'INVESTIGATE_PEN',
+        payload: { penId: selectedPen, method },
+      });
+    }
 
     // Check for wolf
     const result = investigateSheep(
@@ -70,10 +78,10 @@ export default function NightPhase() {
     : [];
 
   const methods = [
-    { id: 'check_paws', label: '🐾 Kiểm tra chân', desc: 'Phát hiện sói bình thường' },
-    { id: 'check_teeth', label: '🦷 Kiểm tra răng', desc: 'Phát hiện sói con' },
-    { id: 'check_eyes', label: '👀 Kiểm tra mắt', desc: 'Phát hiện sói dại' },
-    { id: 'shear', label: '✂️ Cạo lông', desc: 'Phát hiện sói gầy (cần Pin)' },
+    { id: 'check_paws', label: '🐾 Kiểm tra chân', desc: 'Phát hiện Sói Bình Thường (chân to)', cost: true },
+    { id: 'check_teeth', label: '🦷 Kiểm tra răng', desc: 'Phát hiện Sói Con (răng nhọn)', cost: true },
+    { id: 'check_eyes', label: '👀 Kiểm tra mắt', desc: 'Phát hiện Sói Dại (mắt đỏ, dãi)', cost: true },
+    { id: 'shear', label: '✂️ Cạo lông', desc: 'Phát hiện Sói Gầy (xương sườn) — MIỄN PHÍ', cost: false },
   ];
 
   return (
@@ -173,12 +181,12 @@ export default function NightPhase() {
                       <button
                         key={m.id}
                         className="btn btn-ghost"
-                        style={{ fontSize: '13px', justifyContent: 'flex-start' }}
+                        style={{ fontSize: '13px', justifyContent: 'flex-start', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', padding: '8px 12px' }}
                         onClick={() => handleInvestigate(m.id)}
-                        disabled={state.player.energy <= 0}
-                        title={m.desc}
+                        disabled={m.cost && state.player.energy <= 0}
                       >
-                        {m.label}
+                        <span>{m.label} {!m.cost && <span style={{ color: 'var(--accent-green)', fontSize: '10px' }}>✨FREE</span>}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 400 }}>{m.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -205,6 +213,27 @@ export default function NightPhase() {
               <div>🐑 Tổng cừu: {state.sheep.length}</div>
               <div>🔍 Đã kiểm tra: {state.nightResults.investigated.length} lần</div>
               <div>🐺 Phát hiện: {state.nightResults.foundWolves.length} sói</div>
+            </div>
+          </div>
+
+          {/* Hướng dẫn điều tra */}
+          <div className="card" style={{ borderColor: 'rgba(177, 151, 252, 0.2)' }}>
+            <h3 style={{ fontSize: '13px', marginBottom: 'var(--space-sm)', color: 'var(--accent-purple)' }}>
+              📖 Cách tìm sói
+            </h3>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px', lineHeight: 1.5 }}>
+              <div>1️⃣ Chọn chuồng → cho <b style={{ color: 'var(--accent-yellow)' }}>chó kiểm tra</b></div>
+              <div>2️⃣ Nếu chó sủa → có sói! Chọn từng con cừu</div>
+              <div>3️⃣ Dùng <b>đúng phương pháp</b> để lật mặt sói:</div>
+              <div style={{ paddingLeft: '12px' }}>
+                <div>🐾 <b>Chân</b> → Sói Bình Thường</div>
+                <div>🦷 <b>Răng</b> → Sói Con</div>
+                <div>👀 <b>Mắt</b> → Sói Dại</div>
+                <div>✂️ <b>Cạo lông</b> → Sói Gầy (miễn phí!)</div>
+              </div>
+              <div style={{ marginTop: '4px', color: 'var(--accent-yellow)', fontStyle: 'italic' }}>
+                ⚠️ Sai phương pháp = không phát hiện được!
+              </div>
             </div>
           </div>
 
