@@ -35,9 +35,11 @@ export function spawnWolvesForNight(day, sheepCount) {
   const maxCount = Math.max(1, Math.ceil(sheepCount * WOLF_CAP_RATIO));
   let count = Math.min(rawCount, maxCount);
 
-  // Giới hạn cứng: 2 đêm đầu chỉ cho phép tối đa 1 sói
-  if (day <= 2) {
+  // Giới hạn cứng giai đoạn đầu để game không quá khó
+  if (day <= 4) {
     count = Math.min(count, 1);
+  } else if (day <= 6) {
+    count = Math.min(count, 2);
   }
 
   // Weighted random: sói xuất hiện càng lâu → weight càng cao

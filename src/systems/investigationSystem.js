@@ -65,11 +65,13 @@ function canDetectWithMethod(method, wolf) {
   // Trăng tròn: ẩn tất cả tells
   if (wolf.tells.length === 0) return false;
 
+  // Cạo lông luôn phát hiện BẤT KỲ loại sói nào (lột ngụy trang)
+  if (method === 'shear') return true;
+
   const methodToTells = {
     check_paws: ['paws'],
     check_teeth: ['teeth'],
     check_eyes: ['red_eyes', 'drool'],
-    shear: ['ribs'],
   };
 
   const detectableTells = methodToTells[method] || [];
