@@ -30,7 +30,7 @@ export default function MainMenu() {
         <h1 className="menu-title">Sheep Farm Defense</h1>
         <p className="menu-subtitle">
           Bảo vệ trang trại cừu khỏi bầy sói tiến hóa. 
-          Kiếm đủ 200 Xu để bán trang trại và cưới vợ!
+          Kiếm đủ 100 Xu để bán trang trại và cưới vợ!
         </p>
       </div>
 

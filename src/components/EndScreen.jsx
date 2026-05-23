@@ -48,11 +48,14 @@ export default function EndScreen({ result }) {
         ) : (
           <div style={{ maxWidth: '420px', textAlign: 'center' }}>
             <p style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--text-primary)' }}>
-              Bầy sói đã chiếm trọn trang trại.
+              {state.loseReason === 'death'
+                ? 'Bạn đã gục ngã trong trận chiến với bầy sói.'
+                : 'Bầy sói đã chiếm trọn trang trại.'}
             </p>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Sau {state.day} ngày chiến đấu, sói ngụy trang đã vượt quá 50% đàn cừu.
-              Trang trại không thể cứu vãn. Giấc mơ cưới vợ tan thành mây khói...
+              {state.loseReason === 'death'
+                ? `Sau ${state.day} ngày chiến đấu, sức lực đã cạn kiệt. Bạn gục ngã trước nanh vuốt của sói. Giấc mơ cưới vợ tan thành mây khói...`
+                : `Sau ${state.day} ngày chiến đấu, sói ngụy trang đã vượt quá 75% đàn cừu. Trang trại không thể cứu vãn. Giấc mơ cưới vợ tan thành mây khói...`}
             </p>
           </div>
         )}

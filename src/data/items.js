@@ -56,6 +56,15 @@ export const ITEMS = {
     stackable: false,
     shopType: 'basic',
   },
+  buy_sheep: {
+    id: 'buy_sheep',
+    name: 'Cừu Giống',
+    description: 'Mua thêm một con cừu trưởng thành cho trang trại.',
+    price: 10,
+    category: ITEM_CATEGORIES.FARM,
+    stackable: false,
+    shopType: 'basic',
+  },
 
   // === THƯƠNG NHÂN LANG THANG ===
   ammo: {

@@ -101,7 +101,7 @@ export default function CombatPhase() {
       engineRef.current?.stop();
       addLog('💀 Bạn đã gục ngã...');
       setTimeout(() => {
-        dispatch({ type: 'SET_PHASE', payload: 'LOSE' });
+        dispatch({ type: 'LOSE_GAME', payload: { reason: 'death' } });
       }, 1500);
     }
   }, [wolf?.hp, state.player.hp, wolf, dispatch, addLog]);

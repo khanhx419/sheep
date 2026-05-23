@@ -9,7 +9,7 @@
 import {
   TARGET_GOLD, STARTING_GOLD, PLAYER_MAX_HP,
   PLAYER_ENERGY_PER_NIGHT, STARTING_SHEEP_COUNT,
-  SAVE_KEY, SAVE_VERSION,
+  SAVE_KEY, SAVE_VERSION, LOSE_RATIO,
 } from '../data/constants.js';
 
 // --- Helpers ---
@@ -87,6 +87,9 @@ export function createInitialState() {
 
     // Message log
     messages: [],
+
+    // Lý do thua (dùng cho EndScreen)
+    loseReason: null, // 'death' | 'overrun' | null
   };
 }
 
@@ -121,6 +124,15 @@ export function gameReducer(state, action) {
           ...state,
           gold: state.gold - price,
           player: { ...state.player, ammo: state.player.ammo + 1 },
+        };
+      }
+
+      // Cừu giống → sinh cừu mới, không vào inventory
+      if (itemId === 'buy_sheep') {
+        return {
+          ...state,
+          gold: state.gold - price,
+          sheep: [...state.sheep, createSheep('adult', 0)],
         };
       }
 
@@ -302,7 +314,7 @@ export function gameReducer(state, action) {
       // === Kiểm tra Lose Condition ngay sau khi sói ăn cừu ===
       const totalRemainingWolves = [...state.infiltratedWolves, ...wolvesToSpawn].length;
       const totalRemainingSheep = updatedSheep.length;
-      const isLose = totalRemainingSheep > 0 && totalRemainingWolves >= totalRemainingSheep * 0.5;
+      const isLose = totalRemainingSheep > 0 && totalRemainingWolves >= totalRemainingSheep * LOSE_RATIO;
 
       return {
         ...state,
@@ -319,6 +331,7 @@ export function gameReducer(state, action) {
         },
         dog: { ...state.dog, available: dogAvailable },
         phase: isLose ? 'LOSE' : 'FARM_DAY',
+        loseReason: isLose ? 'overrun' : null,
         player: { ...state.player, hp: state.player.hp }, // HP không tự hồi
         messages: [...state.messages, ...messages].slice(-20), // Giữ 20 tin nhắn cuối
         nightResults: { investigated: [], foundWolves: [] },
@@ -330,11 +343,18 @@ export function gameReducer(state, action) {
     case 'CHECK_LOSE': {
       const totalSheep = state.sheep.length;
       const totalWolves = state.infiltratedWolves.length;
-      if (totalSheep > 0 && totalWolves >= totalSheep * 0.5) {
-        return { ...state, phase: 'LOSE' };
+      if (totalSheep > 0 && totalWolves >= totalSheep * LOSE_RATIO) {
+        return { ...state, phase: 'LOSE', loseReason: 'overrun' };
       }
       return state;
     }
+
+    case 'LOSE_GAME':
+      return {
+        ...state,
+        phase: 'LOSE',
+        loseReason: action.payload?.reason || 'death',
+      };
 
     case 'HEAL_PLAYER': {
       const amount = action.payload.amount;

@@ -4,7 +4,7 @@
  * ============================================================ */
 
 // --- Economy ---
-export const TARGET_GOLD = 200;
+export const TARGET_GOLD = 100;
 export const STARTING_GOLD = 10;
 export const INCOME_PER_ADULT_SHEEP = 1;
 export const STARTING_SHEEP_COUNT = 5;
@@ -38,7 +38,7 @@ export const MISS_MULTIPLIER = 0.3;
 export const WOLF_BASE_COUNT = 1;         // Số sói tối thiểu mỗi đêm
 export const WOLF_PER_NIGHTS = 3;         // Mỗi 3 đêm +1 sói
 export const WOLF_CAP_RATIO = 0.3;        // Tối đa 30% số cừu hiện tại
-export const LOSE_RATIO = 0.5;            // Thua khi sói >= 50% cừu
+export const LOSE_RATIO = 0.75;            // Thua khi sói >= 75% cừu
 
 // --- Full Moon ---
 export const FULL_MOON_CYCLE = 7;         // Trăng tròn mỗi 7 đêm
