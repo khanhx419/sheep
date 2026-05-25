@@ -1,51 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Body (red tinted) -->
-  <ellipse cx="32" cy="38" rx="20" ry="14" fill="#8a3333"/>
-  <!-- Darker back -->
-  <ellipse cx="34" cy="33" rx="16" ry="8" fill="#772828"/>
-  <!-- Tail (bristled) -->
-  <path d="M52 34 Q60 26 56 18" stroke="#772828" stroke-width="5" fill="none" stroke-linecap="round"/>
-  <!-- Back legs -->
-  <rect x="40" y="48" width="4.5" height="11" rx="2" fill="#6a2222"/>
-  <rect x="46" y="48" width="4.5" height="11" rx="2" fill="#6a2222"/>
-  <!-- Front legs -->
-  <rect x="16" y="48" width="4.5" height="11" rx="2" fill="#6a2222"/>
-  <rect x="22" y="48" width="4.5" height="11" rx="2" fill="#6a2222"/>
-  <!-- Head -->
-  <ellipse cx="16" cy="26" rx="12" ry="10" fill="#8a3333"/>
-  <!-- Snout -->
-  <ellipse cx="8" cy="29" rx="8" ry="5" fill="#994444"/>
-  <!-- Nose -->
-  <ellipse cx="4" cy="27" rx="2.5" ry="2" fill="#222"/>
-  <!-- Mouth / snarl -->
-  <path d="M3 29 Q8 36 15 30" stroke="#551111" stroke-width="1.2" fill="none"/>
-  <!-- More teeth -->
-  <polygon points="5,29 6,33 7,29" fill="white"/>
-  <polygon points="8,29.5 9,33.5 10,29.5" fill="white"/>
-  <polygon points="11,30 12,33.5 13,30" fill="white"/>
-  <!-- Drool drops -->
-  <ellipse cx="7" cy="35" rx="1" ry="2" fill="#aaddaa" opacity="0.7"/>
-  <ellipse cx="11" cy="36" rx="0.8" ry="1.8" fill="#aaddaa" opacity="0.6"/>
-  <circle cx="7" cy="38" r="1" fill="#aaddaa" opacity="0.4"/>
-  <!-- Eyes (bright red, wild) -->
-  <circle cx="13" cy="23" r="3.5" fill="#ff4444"/>
-  <circle cx="21" cy="22" r="3.5" fill="#ff4444"/>
-  <circle cx="14" cy="23" r="1.3" fill="#1a1a1a"/>
-  <circle cx="22" cy="22" r="1.3" fill="#1a1a1a"/>
-  <!-- Intense eye glow -->
-  <circle cx="13" cy="23" r="5" fill="#ff4444" opacity="0.2"/>
-  <circle cx="21" cy="22" r="5" fill="#ff4444" opacity="0.2"/>
-  <!-- Bloodshot lines -->
-  <line x1="10" y1="22" x2="11" y2="23" stroke="#ff6666" stroke-width="0.4"/>
-  <line x1="16" y1="23" x2="15" y2="23" stroke="#ff6666" stroke-width="0.4"/>
-  <line x1="18" y1="21" x2="19" y2="22" stroke="#ff6666" stroke-width="0.4"/>
-  <line x1="24" y1="22" x2="23" y2="22" stroke="#ff6666" stroke-width="0.4"/>
-  <!-- Ears (sharp, bristled) -->
-  <polygon points="7,20 1,4 15,16" fill="#772828"/>
-  <polygon points="20,18 23,2 29,15" fill="#772828"/>
-  <!-- Inner ear -->
-  <polygon points="8,18 4,8 13,16" fill="#994444"/>
-  <polygon points="21,17 24,6 27,15" fill="#994444"/>
-  <!-- Label -->
-  <text x="32" y="63" text-anchor="middle" font-family="Arial, sans-serif" font-size="4.5" fill="#cc4444">Sói dại</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <g>
+    <ellipse cx="48" cy="73" rx="26" ry="8" fill="#000" opacity=".14"/>
+    <path d="M23 53c5-15 20-24 37-24 15 0 24 7 27 19-3 8-4 17-13 21H39c-9-3-13-8-16-16z" fill="#874141"/>
+    <path d="M35 39c10-10 29-14 41-2-8-1-16 1-22 5-8 1-13 1-19-3z" fill="#6f2c2c"/>
+    <path d="M73 48c8 3 11 10 10 17-6-1-10-2-13-5z" fill="#6f2c2c"/>
+    <ellipse cx="27" cy="37" rx="14" ry="12" fill="#853636"/>
+    <ellipse cx="16" cy="40" rx="10" ry="7" fill="#964c4c"/>
+    <ellipse cx="10" cy="40" rx="2.8" ry="2.2" fill="#111216"/>
+    <ellipse cx="24" cy="34" rx="4.3" ry="3.7" fill="#ff3d3d"/>
+    <ellipse cx="33" cy="32" rx="4.3" ry="3.7" fill="#ff3d3d"/>
+    <circle cx="25" cy="34" r="1.5" fill="#17171b"/>
+    <circle cx="34" cy="32" r="1.5" fill="#17171b"/>
+    <circle cx="24" cy="34" r="7.4" fill="#ff3d3d" opacity=".18"/>
+    <circle cx="33" cy="32" r="7.4" fill="#ff3d3d" opacity=".18"/>
+    <path d="M19 24l-8-16 16 9z" fill="#602626"/>
+    <path d="M35 20l10-14 2 18z" fill="#602626"/>
+    <path d="M12 43c4 6 10 8 17 4" fill="none" stroke="#451515" stroke-width="2" stroke-linecap="round"/>
+    <path d="M13 43l3 5 2-4 3 4 2-4" fill="none" stroke="#f4f4f4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M18 48c1 6 1 12-1 17" fill="none" stroke="#b6f6d8" stroke-width="3" stroke-linecap="round" opacity=".82"/>
+    <circle cx="16" cy="68" r="2.4" fill="#b6f6d8" opacity=".52"/>
+    <rect x="33" y="64" width="6" height="18" rx="3" fill="#5d2424"/>
+    <rect x="45" y="64" width="6" height="18" rx="3" fill="#5d2424"/>
+    <rect x="60" y="64" width="6" height="18" rx="3" fill="#5d2424"/>
+    <rect x="71" y="64" width="6" height="18" rx="3" fill="#5d2424"/>
+  </g>
 </svg>

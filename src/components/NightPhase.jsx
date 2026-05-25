@@ -1,12 +1,14 @@
 /* ============================================================
- * NightPhase.jsx — Điều tra ban đêm
- * Chọn chuồng → chọn cừu → chọn phương pháp → phát hiện sói → combat
+ * NightPhase.jsx - Dieu tra ban dem
  * ============================================================ */
 
 import { useState } from 'react';
 import { useGameState, useGameDispatch } from '../context/GameContext.jsx';
 import { dogCheck, investigateSheep } from '../systems/investigationSystem.js';
 import { processAdvanceDay } from '../systems/economySystem.js';
+import { ITEMS } from '../data/items.js';
+import { PLAYER_ENERGY_PER_NIGHT } from '../data/constants.js';
+import PenScene from './PenScene.jsx';
 
 export default function NightPhase() {
   const state = useGameState();
@@ -17,6 +19,11 @@ export default function NightPhase() {
   const [lastClue, setLastClue] = useState(null);
   const [dogResult, setDogResult] = useState(null);
 
+  const energyItems = state.inventory.filter((entry) => {
+    const item = ITEMS[entry.itemId];
+    return item && item.category === 'consumable' && item.energyAmount && item.usableInNight;
+  });
+
   const handleDogCheck = (penId) => {
     const result = dogCheck(penId, state.infiltratedWolves, state.dog.available);
     setDogResult({ penId, ...result });
@@ -25,29 +32,31 @@ export default function NightPhase() {
   const handleInvestigate = (method) => {
     if (!selectedSheep) return;
 
-    // Cạo lông KHÔNG tốn năng lượng (hoạt động nông trại)
     const isShear = method === 'shear';
-
-    // Các phương pháp khác cần năng lượng
     if (!isShear && state.player.energy <= 0) return;
 
-    // Dispatch energy cost (chỉ khi không phải cạo lông)
-    if (!isShear) {
+    if (isShear) {
+      dispatch({
+        type: 'SHEAR_SHEEP',
+        payload: { sheepId: selectedSheep.id, penId: selectedPen },
+      });
+    } else {
       dispatch({
         type: 'INVESTIGATE_PEN',
         payload: { penId: selectedPen, method },
       });
     }
 
-    // Check for wolf
     const result = investigateSheep(
-      method, selectedSheep.id, state.sheep, state.infiltratedWolves
+      method,
+      selectedSheep.id,
+      state.sheep,
+      state.infiltratedWolves
     );
 
     setLastClue(result.clue);
 
     if (result.isWolf && result.wolfData) {
-      // Phát hiện sói! → Combat
       dispatch({
         type: 'WOLF_FOUND',
         payload: { wolf: result.wolfData, sheepId: selectedSheep.id },
@@ -60,132 +69,144 @@ export default function NightPhase() {
     setSelectedSheep(null);
   };
 
+  const handleUseEnergyItem = (itemId) => {
+    const item = ITEMS[itemId];
+    if (!item?.energyAmount || state.player.energy >= PLAYER_ENERGY_PER_NIGHT) return;
+
+    dispatch({ type: 'RESTORE_ENERGY', payload: { amount: item.energyAmount } });
+    dispatch({ type: 'USE_ITEM', payload: { itemId } });
+    setLastClue(`Uong ${item.name}: hoi ${item.energyAmount} nang luong.`);
+  };
+
   const handleEndNight = () => {
-    // Chuyển sang ngày mới
     const payload = processAdvanceDay(state);
     dispatch({ type: 'ADVANCE_DAY', payload });
     dispatch({ type: 'CHECK_LOSE' });
   };
 
-  // Cừu trong chuồng đang chọn (bao gồm sói ngụy trang)
   const sheepInPen = selectedPen !== null
     ? [
-        ...state.sheep.filter(s => s.penId === selectedPen),
+        ...state.sheep
+          .filter((sheep) => sheep.penId === selectedPen)
+          .map((sheep) => ({ ...sheep, penId: selectedPen, tells: [] })),
         ...state.infiltratedWolves
-          .filter(w => w.penId === selectedPen)
-          .map(w => ({ id: w.fakeSheepId || w.id, age: w.disguise === 'baby' ? 'baby' : 'adult', _isWolf: true })),
+          .filter((wolf) => wolf.penId === selectedPen)
+          .map((wolf) => ({
+            id: wolf.fakeSheepId || wolf.id,
+            fakeSheepId: wolf.fakeSheepId,
+            age: wolf.disguise === 'baby' ? 'baby' : 'adult',
+            isSheared: wolf.disguise === 'sheared',
+            _isWolf: true,
+            tells: wolf.tells,
+            penId: wolf.penId,
+          })),
       ]
     : [];
 
   const methods = [
-    { id: 'check_paws', label: '🐾 Kiểm tra chân', cost: true },
-    { id: 'check_teeth', label: '🦷 Kiểm tra răng', cost: true },
-    { id: 'check_eyes', label: '👀 Kiểm tra mắt', cost: true },
-    { id: 'shear', label: '✂️ Cạo lông', cost: false },
+    { id: 'check_paws', label: 'Kiem tra chan', cost: true },
+    { id: 'check_teeth', label: 'Kiem tra rang', cost: true },
+    { id: 'check_eyes', label: 'Kiem tra mat', cost: true },
+    { id: 'shear', label: 'Cao long', cost: false },
   ];
 
   return (
     <div className="night-overlay">
-      {/* Night Header */}
       <div className="night-header">
-        <h2 className="font-pixel">🌙 Đêm {state.day}</h2>
+        <h2 className="font-pixel">Dem {state.day}</h2>
         {state.isFullMoon && (
           <p style={{ color: 'var(--accent-yellow)', marginTop: '4px' }}>
-            🌕 Trăng tròn — Sói ẩn mình hoàn toàn!
+            Trang tron - soi an minh hoan toan!
           </p>
         )}
         <div className="energy-display">
-          {Array.from({ length: 2 }).map((_, i) => (
+          {Array.from({ length: PLAYER_ENERGY_PER_NIGHT }).map((_, i) => (
             <div
               key={i}
               className={`energy-pip ${i < state.player.energy ? 'filled' : ''}`}
-              title="Năng lượng điều tra"
+              title="Nang luong dieu tra"
             />
           ))}
           <span style={{ fontSize: '13px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
-            {state.player.energy} năng lượng
+            {state.player.energy} nang luong
           </span>
         </div>
       </div>
 
       <div className="game-layout">
         <div className="game-main">
-          {/* Chọn chuồng */}
           <div className="card">
             <h3 style={{ fontSize: '16px', marginBottom: 'var(--space-md)' }}>
-              🔍 Chọn chuồng để điều tra
+              Chon chuong de dieu tra
             </h3>
-            <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-              {state.pens.map(pen => {
-                const penSheep = state.sheep.filter(s => s.penId === pen.id);
+            <div style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+              {state.pens.map((pen) => {
+                const penSheep = state.sheep.filter((sheep) => sheep.penId === pen.id).length;
+                const penWolves = state.infiltratedWolves.filter((wolf) => wolf.penId === pen.id).length;
                 const isSelected = selectedPen === pen.id;
+
                 return (
                   <button
                     key={pen.id}
                     className={`btn ${isSelected ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => { setSelectedPen(pen.id); setSelectedSheep(null); setLastClue(null); }}
+                    onClick={() => {
+                      setSelectedPen(pen.id);
+                      setSelectedSheep(null);
+                      setLastClue(null);
+                    }}
                   >
-                    {pen.name} ({penSheep.length} cừu)
+                    {pen.name} ({penSheep + penWolves} con)
                   </button>
                 );
               })}
             </div>
 
-            {/* Dog check */}
             {state.dog.available && selectedPen !== null && (
               <div style={{ marginTop: 'var(--space-md)' }}>
                 <button className="btn btn-warning" onClick={() => handleDogCheck(selectedPen)}>
-                  🐕 Cho chó kiểm tra chuồng
+                  Cho cho kiem tra chuong
                 </button>
                 {dogResult && dogResult.penId === selectedPen && (
                   <p style={{ marginTop: '8px', fontSize: '13px', color: dogResult.hasDangerousWolf ? 'var(--accent-red)' : 'var(--accent-green)' }}>
                     {dogResult.hasDangerousWolf
-                      ? '🐕 GÂU GÂU! Chó sủa dữ dội — có sói trong chuồng!'
-                      : '🐕 Chó im lặng — chuồng an toàn (hoặc chỉ có sói con).'}
+                      ? 'GAU GAU! Chuong nay co soi.'
+                      : 'Cho im lang - chuong nay co ve an toan.'}
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Cừu trong chuồng */}
           {selectedPen !== null && (
             <div className="card animate-fade">
               <h3 style={{ fontSize: '14px', marginBottom: 'var(--space-md)' }}>
-                🐑 Cừu trong {state.pens.find(p => p.id === selectedPen)?.name}
+                Cuu trong {state.pens.find((pen) => pen.id === selectedPen)?.name}
               </h3>
               <div className="sheep-grid">
-                {sheepInPen.map(sheep => (
-                  <div
-                    key={sheep.id}
-                    className={`sheep-icon ${sheep.age === 'baby' ? 'sheep-baby' : 'sheep-adult'}`}
-                    style={{
-                      outline: selectedSheep?.id === sheep.id ? '2px solid var(--accent-blue)' : 'none',
-                      outlineOffset: '2px',
-                    }}
-                    onClick={() => setSelectedSheep(sheep)}
-                  >
-                    {sheep.age === 'baby' ? '🐣' : '🐑'}
-                  </div>
-                ))}
+                <PenScene
+                  residents={sheepInPen}
+                  backgroundImage="/assets/images/background_night.svg"
+                  interactive
+                  selectedId={selectedSheep?.id}
+                  onSelect={setSelectedSheep}
+                />
               </div>
 
-              {/* Investigation methods */}
               {selectedSheep && (
                 <div style={{ marginTop: 'var(--space-md)' }}>
                   <p style={{ fontSize: '13px', marginBottom: 'var(--space-sm)', color: 'var(--text-secondary)' }}>
-                    Chọn phương pháp điều tra:
+                    Chon phuong phap dieu tra:
                   </p>
                   <div className="investigate-methods">
-                    {methods.map(m => (
+                    {methods.map((method) => (
                       <button
-                        key={m.id}
+                        key={method.id}
                         className="btn btn-ghost"
                         style={{ fontSize: '13px', justifyContent: 'flex-start' }}
-                        onClick={() => handleInvestigate(m.id)}
-                        disabled={m.cost && state.player.energy <= 0}
+                        onClick={() => handleInvestigate(method.id)}
+                        disabled={method.cost && state.player.energy <= 0}
                       >
-                        {m.label}
+                        {method.label}
                       </button>
                     ))}
                   </div>
@@ -194,7 +215,6 @@ export default function NightPhase() {
             </div>
           )}
 
-          {/* Clue result */}
           {lastClue && (
             <div className="card animate-slide-up" style={{ borderColor: 'rgba(255, 212, 59, 0.3)' }}>
               <p style={{ fontSize: '15px', fontFamily: '"VT323", monospace' }}>{lastClue}</p>
@@ -202,22 +222,43 @@ export default function NightPhase() {
           )}
         </div>
 
-        {/* Sidebar */}
         <div className="game-sidebar">
           <div className="card">
-            <h3 style={{ fontSize: '14px', marginBottom: 'var(--space-md)' }}>📊 Tình hình</h3>
+            <h3 style={{ fontSize: '14px', marginBottom: 'var(--space-md)' }}>Tinh hinh</h3>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div>❤️ HP: {state.player.hp}/{state.player.maxHp}</div>
-              <div>⚡ Năng lượng: {state.player.energy}/2</div>
-              <div>🐑 Tổng cừu: {state.sheep.length}</div>
-              <div>🔍 Đã kiểm tra: {state.nightResults.investigated.length} lần</div>
-              <div>🐺 Phát hiện: {state.nightResults.foundWolves.length} sói</div>
+              <div>HP: {state.player.hp}/{state.player.maxHp}</div>
+              <div>Nang luong: {state.player.energy}/{PLAYER_ENERGY_PER_NIGHT}</div>
+              <div>Tong cuu: {state.sheep.length}</div>
+              <div>Da kiem tra: {state.nightResults.investigated.length} lan</div>
+              <div>Phat hien: {state.nightResults.foundWolves.length} soi</div>
             </div>
           </div>
 
+          {energyItems.length > 0 && (
+            <div className="card">
+              <h3 style={{ fontSize: '14px', marginBottom: 'var(--space-md)' }}>Hoi nang luong</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                {energyItems.map((entry) => {
+                  const item = ITEMS[entry.itemId];
+                  return (
+                    <button
+                      key={entry.itemId}
+                      className="btn btn-warning"
+                      onClick={() => handleUseEnergyItem(entry.itemId)}
+                      disabled={state.player.energy >= PLAYER_ENERGY_PER_NIGHT}
+                      style={{ justifyContent: 'space-between' }}
+                    >
+                      <span>{item.name}</span>
+                      <span>x{entry.quantity}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <button className="btn btn-danger btn-lg" onClick={handleEndNight}>
-            ☀️ Kết thúc đêm → Ngày mới
+            Ket thuc dem {'->'} Ngay moi
           </button>
         </div>
       </div>

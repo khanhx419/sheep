@@ -1,33 +1,33 @@
 /* ============================================================
- * wolfTypes.js — Wolf Definitions (Phase 1: 4 loại)
+ * wolfTypes.js - Wolf Definitions
  * Sheep Farm Defense
  * ============================================================ */
 
 export const WOLF_TYPES = {
   normal: {
     id: 'normal',
-    name: 'Sói Bình Thường',
-    description: 'Chân to bất thường, lộ ra khi kiểm tra kỹ.',
+    name: 'Soi Binh Thuong',
+    description: 'Chan to bat thuong, lo ra khi kiem tra ky.',
     hp: 30,
     speed: 1,
     damage: 10,
-    disguise: 'adult',        // Ngụy trang thành cừu trưởng thành
-    tells: ['paws'],          // Manh mối: chân to
+    disguise: 'adult',
+    tells: ['paws'],
     minNight: 1,
-    dogDetect: true,          // Chó sủa được
+    dogDetect: true,
     evasion: 0,
-    eatRate: 1,               // 1 đêm ăn 1 con
+    eatRate: 1,
     statusEffect: null,
     specialMechanic: null,
     patternPool: ['normalRain', 'normalSpiral', 'normalWave'],
-    scaling: { hpPerNight: 3, speedPerNight: 0.05 },
-    color: '#cc3333',         // Placeholder color
+    scaling: { hpPerNight: 3, speedPerNight: 0.025 },
+    color: '#cc3333',
   },
 
   rabid: {
     id: 'rabid',
-    name: 'Sói Dại',
-    description: 'Mắt đỏ ngầu, chảy dãi. Đánh loạn xạ gây chảy máu.',
+    name: 'Soi Dai',
+    description: 'Mat do va chay dai. Dan gay chay mau nhung da co nhip ro rang hon.',
     hp: 25,
     speed: 1.5,
     damage: 8,
@@ -37,57 +37,54 @@ export const WOLF_TYPES = {
     dogDetect: true,
     evasion: 0,
     eatRate: 1,
-    statusEffect: 'bleed',   // Gây hiệu ứng chảy máu (DOT)
+    statusEffect: 'bleed',
     specialMechanic: null,
     patternPool: ['rabidChaos', 'rabidBurst', 'rabidZigzag'],
-    scaling: { hpPerNight: 2, speedPerNight: 0.08 },
+    scaling: { hpPerNight: 2, speedPerNight: 0.04 },
     color: '#ff4444',
   },
 
   pup: {
     id: 'pup',
-    name: 'Sói Con',
-    description: 'Trà trộn với cừu con. Chó không phát hiện được.',
+    name: 'Soi Con',
+    description: 'Tra tron voi cuu con. Cho khong phat hien duoc.',
     hp: 15,
     speed: 2,
     damage: 5,
-    disguise: 'baby',         // Ngụy trang thành cừu con
-    tells: ['teeth'],         // Răng nhọn
+    disguise: 'baby',
+    tells: ['teeth'],
     minNight: 4,
-    dogDetect: false,         // Chó KHÔNG sủa
+    dogDetect: false,
     evasion: 0,
-    eatRate: 0.5,             // 2 đêm mới ăn 1 con
+    eatRate: 0.5,
     statusEffect: null,
     specialMechanic: null,
     patternPool: ['pupDash', 'pupScatter', 'pupRapid'],
-    scaling: { hpPerNight: 1, speedPerNight: 0.1 },
+    scaling: { hpPerNight: 1, speedPerNight: 0.045 },
     color: '#ff8866',
   },
 
   lean: {
     id: 'lean',
-    name: 'Sói Gầy',
-    description: 'Ngụy trang thành cừu đã cạo lông. Lộ xương sườn. Né giỏi.',
+    name: 'Soi Gay',
+    description: 'Nguy trang thanh cuu da cat long. Lo xuong suon va ne gioi.',
     hp: 35,
     speed: 1,
     damage: 12,
-    disguise: 'sheared',      // Ngụy trang cừu cạo lông
-    tells: ['ribs'],          // Xương sườn lộ
+    disguise: 'sheared',
+    tells: ['ribs'],
     minNight: 4,
     dogDetect: true,
-    evasion: 0.3,             // 30% né đòn
-    eatRate: 0.5,             // 2 đêm ăn 1 con
+    evasion: 0.3,
+    eatRate: 0.5,
     statusEffect: null,
     specialMechanic: null,
     patternPool: ['leanSlice', 'leanFade', 'leanTrap'],
-    scaling: { hpPerNight: 3, speedPerNight: 0.05 },
+    scaling: { hpPerNight: 3, speedPerNight: 0.03 },
     color: '#996644',
   },
 };
 
-/**
- * Lấy danh sách sói đủ điều kiện xuất hiện theo đêm hiện tại
- */
 export function getEligibleWolves(nightNumber) {
-  return Object.values(WOLF_TYPES).filter(w => nightNumber >= w.minNight);
+  return Object.values(WOLF_TYPES).filter((wolf) => nightNumber >= wolf.minNight);
 }

@@ -1,6 +1,5 @@
 /* ============================================================
- * items.js — Shop & Merchant Items
- * Sheep Farm Defense
+ * items.js - Shop & Merchant Items
  * ============================================================ */
 
 export const ITEM_CATEGORIES = {
@@ -10,11 +9,10 @@ export const ITEM_CATEGORIES = {
 };
 
 export const ITEMS = {
-  // === CỬA HÀNG CƠ BẢN (ban ngày) ===
   hay: {
     id: 'hay',
-    name: 'Cỏ Khô',
-    description: 'Cho cừu ăn vào ngày mưa. Không có → cừu yếu đi.',
+    name: 'Co Kho',
+    description: 'Cho cuu an vao ngay mua. Khong co -> cuu yeu di.',
     price: 1,
     category: ITEM_CATEGORIES.FARM,
     stackable: true,
@@ -22,8 +20,8 @@ export const ITEMS = {
   },
   battery: {
     id: 'battery',
-    name: 'Pin Tông Đơ',
-    description: 'Dùng để cạo lông cừu khi điều tra.',
+    name: 'Pin Tong Do',
+    description: 'Dung de cao long cuu khi dieu tra.',
     price: 2,
     category: ITEM_CATEGORIES.FARM,
     stackable: true,
@@ -31,8 +29,8 @@ export const ITEMS = {
   },
   sunDoll: {
     id: 'sunDoll',
-    name: 'Búp Bê Cầu Nắng',
-    description: 'Đảm bảo ngày mai trời nắng.',
+    name: 'Bup Be Cau Nang',
+    description: 'Dam bao ngay mai troi nang.',
     price: 3,
     category: ITEM_CATEGORIES.FARM,
     stackable: true,
@@ -40,8 +38,8 @@ export const ITEMS = {
   },
   fence: {
     id: 'fence',
-    name: 'Hàng Rào Chia Chuồng',
-    description: 'Chia chuồng thành nhiều khu, dễ quản lý hơn.',
+    name: 'Hang Rao Chia Chuong',
+    description: 'Chia chuong thanh nhieu khu, de quan ly hon.',
     price: 5,
     category: ITEM_CATEGORIES.FARM,
     stackable: false,
@@ -49,8 +47,8 @@ export const ITEMS = {
   },
   roof: {
     id: 'roof',
-    name: 'Mái Che',
-    description: 'Che mưa cho chuồng. Cừu không cần cỏ khô khi trời mưa.',
+    name: 'Mai Che',
+    description: 'Che mua cho chuong. Cuu khong can co kho khi troi mua.',
     price: 8,
     category: ITEM_CATEGORIES.FARM,
     stackable: false,
@@ -58,19 +56,18 @@ export const ITEMS = {
   },
   buy_sheep: {
     id: 'buy_sheep',
-    name: 'Cừu Giống',
-    description: 'Mua thêm một con cừu trưởng thành cho trang trại.',
+    name: 'Cuu Giong',
+    description: 'Mua them mot con cuu truong thanh cho trang trai.',
     price: 10,
     category: ITEM_CATEGORIES.FARM,
     stackable: false,
     shopType: 'basic',
   },
 
-  // === THƯƠNG NHÂN LANG THANG ===
   ammo: {
     id: 'ammo',
-    name: 'Đạn Súng',
-    description: 'Đạn cho vũ khí tầm xa. Mỗi viên = 1 lượt bắn.',
+    name: 'Dan Sung',
+    description: 'Dan cho vu khi tam xa. Moi vien = 1 luot ban.',
     price: 3,
     category: ITEM_CATEGORIES.COMBAT,
     stackable: true,
@@ -78,8 +75,8 @@ export const ITEMS = {
   },
   armorLight: {
     id: 'armorLight',
-    name: 'Giáp Nhẹ',
-    description: 'Bảo hộ cơ bản. Độ bền: 20.',
+    name: 'Giap Nhe',
+    description: 'Bao ho co ban. Do ben: 20.',
     price: 8,
     category: ITEM_CATEGORIES.COMBAT,
     maxDurability: 20,
@@ -88,8 +85,8 @@ export const ITEMS = {
   },
   armorHeavy: {
     id: 'armorHeavy',
-    name: 'Giáp Nặng',
-    description: 'Bảo hộ tốt hơn. Độ bền: 40.',
+    name: 'Giap Nang',
+    description: 'Bao ho tot hon. Do ben: 40.',
     price: 15,
     category: ITEM_CATEGORIES.COMBAT,
     maxDurability: 40,
@@ -98,8 +95,8 @@ export const ITEMS = {
   },
   repairKit: {
     id: 'repairKit',
-    name: 'Bộ Sửa Giáp',
-    description: 'Hồi phục 15 độ bền giáp.',
+    name: 'Bo Sua Giap',
+    description: 'Hoi phuc 15 do ben giap.',
     price: 4,
     category: ITEM_CATEGORIES.COMBAT,
     repairAmount: 15,
@@ -108,31 +105,31 @@ export const ITEMS = {
   },
   beer: {
     id: 'beer',
-    name: 'Bia Thợ Săn',
-    description: 'Hồi 30 HP. Dùng trong hoặc ngoài combat.',
+    name: 'Bia Tho San',
+    description: 'Hoi 2 nang luong dieu tra trong dem.',
     price: 3,
     category: ITEM_CATEGORIES.CONSUMABLE,
-    healAmount: 30,
+    energyAmount: 2,
     stackable: true,
     shopType: 'merchant',
+    usableInCombat: false,
+    usableInNight: true,
   },
   strengthPotion: {
     id: 'strengthPotion',
-    name: 'Thuốc Tăng Lực',
-    description: 'Tăng 50% sát thương cho trận combat tiếp theo.',
+    name: 'Thuoc Tang Luc',
+    description: 'Tang 50% sat thuong cho tran combat tiep theo.',
     price: 6,
     category: ITEM_CATEGORIES.CONSUMABLE,
     buffType: 'damage',
     buffMultiplier: 1.5,
-    buffDuration: 1, // 1 trận
+    buffDuration: 1,
     stackable: true,
     shopType: 'merchant',
+    usableInCombat: true,
   },
 };
 
-/**
- * Lấy danh sách items theo loại shop
- */
 export function getShopItems(shopType) {
-  return Object.values(ITEMS).filter(item => item.shopType === shopType);
+  return Object.values(ITEMS).filter((item) => item.shopType === shopType);
 }

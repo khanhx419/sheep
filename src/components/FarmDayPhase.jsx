@@ -1,24 +1,23 @@
 /* ============================================================
- * FarmDayPhase.jsx — Giao diện ban ngày
- * Hiển thị chuồng, cừu, HUD, actions
+ * FarmDayPhase.jsx - Giao dien ban ngay
+ * Hien thi chuong, cuu, HUD, actions
  * ============================================================ */
 
+import { useState } from 'react';
 import { useGameState, useGameDispatch } from '../context/GameContext.jsx';
-import { processAdvanceDay } from '../systems/economySystem.js';
 import { saveGame } from '../reducers/gameReducer.js';
 import Notebook from './Notebook.jsx';
-import { useState } from 'react';
+import PenScene from './PenScene.jsx';
 
 export default function FarmDayPhase() {
   const state = useGameState();
   const dispatch = useGameDispatch();
   const [showNotebook, setShowNotebook] = useState(false);
 
-  const adultCount = state.sheep.filter(s => s.age === 'adult').length;
-  const babyCount = state.sheep.filter(s => s.age === 'baby').length;
+  const adultCount = state.sheep.filter((s) => s.age === 'adult').length;
+  const babyCount = state.sheep.filter((s) => s.age === 'baby').length;
 
   const handleEndDay = () => {
-    // Lưu game trước khi chuyển đêm
     saveGame(state);
     dispatch({ type: 'START_NIGHT' });
   };
@@ -33,18 +32,33 @@ export default function FarmDayPhase() {
     }
   };
 
-  // Nhóm cừu theo chuồng
-  const sheepByPen = {};
-  state.pens.forEach(p => { sheepByPen[p.id] = []; });
-  state.sheep.forEach(s => {
-    if (sheepByPen[s.penId]) {
-      sheepByPen[s.penId].push(s);
+  const residentsByPen = {};
+  state.pens.forEach((pen) => {
+    residentsByPen[pen.id] = [];
+  });
+
+  state.sheep.forEach((sheep) => {
+    if (residentsByPen[sheep.penId]) {
+      residentsByPen[sheep.penId].push(sheep);
     }
+  });
+
+  state.infiltratedWolves.forEach((wolf) => {
+    if (!residentsByPen[wolf.penId]) return;
+
+    residentsByPen[wolf.penId].push({
+      id: wolf.fakeSheepId || `wolf-${wolf.id}`,
+      fakeSheepId: wolf.fakeSheepId,
+      penId: wolf.penId,
+      age: wolf.disguise === 'baby' ? 'baby' : 'adult',
+      isSheared: wolf.disguise === 'sheared',
+      _isWolf: true,
+      tells: wolf.tells,
+    });
   });
 
   return (
     <div>
-      {/* HUD */}
       <div className="hud">
         <div className="hud-stat">
           <span className="icon">📅</span>
@@ -75,15 +89,14 @@ export default function FarmDayPhase() {
         {state.merchant.present && (
           <div className="hud-stat animate-pulse">
             <span className="icon">🧙</span>
-            <span className="text-purple" style={{ color: 'var(--accent-purple)' }}>Thương nhân!</span>
+            <span style={{ color: 'var(--accent-purple)' }}>Thương nhân!</span>
           </div>
         )}
       </div>
 
       <div className="game-layout">
-        {/* Main Area — Chuồng cừu */}
         <div className="game-main">
-          {state.pens.map(pen => (
+          {state.pens.map((pen) => (
             <div className="pen card" key={pen.id}>
               <div className="pen-header">
                 <span className="pen-name">{pen.name}</span>
@@ -91,27 +104,18 @@ export default function FarmDayPhase() {
                   {pen.roofed && '🏠 Mái che'} {pen.fenced && '🔒 Hàng rào'}
                 </span>
               </div>
-              <div className="sheep-grid">
-                {(sheepByPen[pen.id] || []).map(sheep => (
-                  <div
-                    key={sheep.id}
-                    className={`sheep-icon ${
-                      sheep.age === 'baby' ? 'sheep-baby' : 
-                      sheep.isSheared ? 'sheep-sheared' : 'sheep-adult'
-                    }`}
-                    title={sheep.age === 'baby' ? 'Cừu con' : sheep.isSheared ? 'Đã cạo lông' : 'Cừu lớn'}
-                  >
-                    {sheep.age === 'baby' ? '🐣' : '🐑'}
-                  </div>
-                ))}
-                {(sheepByPen[pen.id] || []).length === 0 && (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Chuồng trống</span>
-                )}
-              </div>
+
+              <PenScene
+                residents={residentsByPen[pen.id] || []}
+                backgroundImage={
+                  state.weather === 'rainy'
+                    ? '/assets/images/background_rain.svg'
+                    : '/assets/images/background_day.svg'
+                }
+              />
             </div>
           ))}
 
-          {/* Messages */}
           {state.messages.length > 0 && (
             <div className="card">
               <h3 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
@@ -126,11 +130,10 @@ export default function FarmDayPhase() {
           )}
         </div>
 
-        {/* Sidebar — Actions */}
         <div className="game-sidebar">
           <div className="card">
             <h3 style={{ fontSize: '16px', marginBottom: 'var(--space-md)' }}>⚡ Hành động</h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
               <button className="btn btn-primary" onClick={handleShop}>
                 🏪 Cửa hàng
@@ -153,7 +156,7 @@ export default function FarmDayPhase() {
                 onClick={handleSellFarm}
                 disabled={state.gold < state.targetGold}
               >
-                💰 Bán trang trại ({state.targetGold} Xu)
+                💰 Ban trang trai ({state.targetGold} Xu)
               </button>
               {state.gold < state.targetGold && (
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -168,12 +171,11 @@ export default function FarmDayPhase() {
                 onClick={() => setShowNotebook(true)}
                 style={{ fontSize: '13px' }}
               >
-                📖 Sổ tay chủ cũ ({state.notebookUnlocked.length})
+                📖 Sổ tay chủ cừu ({state.notebookUnlocked.length})
               </button>
             </div>
           </div>
 
-          {/* Inventory Preview */}
           <div className="card">
             <h3 style={{ fontSize: '14px', marginBottom: 'var(--space-sm)' }}>🎒 Trang bị</h3>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -183,20 +185,18 @@ export default function FarmDayPhase() {
             </div>
           </div>
 
-          {/* Danger indicator */}
           <div className="card" style={{ borderColor: 'rgba(255, 107, 107, 0.2)' }}>
             <h3 style={{ fontSize: '14px', marginBottom: 'var(--space-sm)', color: 'var(--accent-red)' }}>
               ⚠️ Mức nguy hiểm
             </h3>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               <div>🐺 Sói tiềm ẩn: {state.infiltratedWolves.length} con</div>
-              <div>📊 Ngày {state.day} — {state.isFullMoon ? '🌕 Trăng tròn!' : `Trăng tròn trong ${7 - (state.day % 7)} ngày`}</div>
+              <div>📊 Ngày {state.day} - {state.isFullMoon ? '🌕 Trăng tròn!' : `Trăng tròn trong ${7 - (state.day % 7)} ngày`}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Notebook Modal */}
       {showNotebook && <Notebook onClose={() => setShowNotebook(false)} />}
     </div>
   );

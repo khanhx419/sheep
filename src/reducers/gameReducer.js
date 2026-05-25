@@ -154,6 +154,17 @@ export function gameReducer(state, action) {
       return { ...state, inventory: inv };
     }
 
+    case 'RESTORE_ENERGY': {
+      const amount = action.payload.amount;
+      return {
+        ...state,
+        player: {
+          ...state.player,
+          energy: Math.min(PLAYER_ENERGY_PER_NIGHT, state.player.energy + amount),
+        },
+      };
+    }
+
     case 'EQUIP_ARMOR': {
       const { itemId, maxDurability } = action.payload;
       return {
@@ -199,6 +210,20 @@ export function gameReducer(state, action) {
         nightResults: {
           ...state.nightResults,
           investigated: [...state.nightResults.investigated, { penId, method }],
+        },
+      };
+    }
+
+    case 'SHEAR_SHEEP': {
+      const { sheepId, penId } = action.payload;
+      return {
+        ...state,
+        sheep: state.sheep.map((sheep) => (
+          sheep.id === sheepId ? { ...sheep, isSheared: true } : sheep
+        )),
+        nightResults: {
+          ...state.nightResults,
+          investigated: [...state.nightResults.investigated, { penId, method: 'shear', sheepId }],
         },
       };
     }

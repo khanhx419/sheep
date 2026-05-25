@@ -1,41 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Body -->
-  <ellipse cx="32" cy="38" rx="20" ry="14" fill="#666666"/>
-  <!-- Darker back -->
-  <ellipse cx="34" cy="33" rx="16" ry="8" fill="#555555"/>
-  <!-- Tail -->
-  <path d="M52 34 Q60 28 58 22" stroke="#555" stroke-width="4" fill="none" stroke-linecap="round"/>
-  <!-- Back legs -->
-  <rect x="40" y="48" width="4.5" height="11" rx="2" fill="#555"/>
-  <rect x="46" y="48" width="4.5" height="11" rx="2" fill="#555"/>
-  <!-- Front legs -->
-  <rect x="16" y="48" width="4.5" height="11" rx="2" fill="#555"/>
-  <rect x="22" y="48" width="4.5" height="11" rx="2" fill="#555"/>
-  <!-- Head -->
-  <ellipse cx="16" cy="26" rx="12" ry="10" fill="#666666"/>
-  <!-- Snout -->
-  <ellipse cx="8" cy="29" rx="8" ry="5" fill="#777777"/>
-  <!-- Nose -->
-  <ellipse cx="4" cy="27" rx="2.5" ry="2" fill="#222"/>
-  <!-- Mouth / snarl -->
-  <path d="M4 29 Q8 34 14 30" stroke="#444" stroke-width="1" fill="none"/>
-  <!-- Teeth -->
-  <polygon points="6,29 7,32 8,29" fill="white"/>
-  <polygon points="10,29.5 11,32.5 12,29.5" fill="white"/>
-  <!-- Eyes (menacing red) -->
-  <circle cx="13" cy="23" r="3" fill="#cc3333"/>
-  <circle cx="21" cy="22" r="3" fill="#cc3333"/>
-  <circle cx="13.5" cy="23" r="1.5" fill="#1a1a1a"/>
-  <circle cx="21.5" cy="22" r="1.5" fill="#1a1a1a"/>
-  <!-- Eye glow -->
-  <circle cx="13" cy="23" r="4" fill="#cc3333" opacity="0.15"/>
-  <circle cx="21" cy="22" r="4" fill="#cc3333" opacity="0.15"/>
-  <!-- Ears (sharp) -->
-  <polygon points="8,20 3,6 15,16" fill="#555"/>
-  <polygon points="20,18 22,4 28,15" fill="#555"/>
-  <!-- Inner ear -->
-  <polygon points="9,18 5,9 14,16" fill="#777"/>
-  <polygon points="21,17 23,7 26,15" fill="#777"/>
-  <!-- Label -->
-  <text x="32" y="63" text-anchor="middle" font-family="Arial, sans-serif" font-size="5" fill="#999">Sói</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <g>
+    <ellipse cx="48" cy="73" rx="26" ry="8" fill="#000" opacity=".12"/>
+    <path d="M23 53c5-15 20-24 37-24 15 0 24 7 27 19-3 8-4 17-13 21H39c-9-3-13-8-16-16z" fill="#6a6d73"/>
+    <path d="M36 39c10-10 29-14 41-2-8-1-16 1-22 5-8 1-13 1-19-3z" fill="#56595f"/>
+    <path d="M73 48c8 3 11 10 10 17-6-1-10-2-13-5z" fill="#56595f"/>
+    <ellipse cx="27" cy="37" rx="14" ry="12" fill="#676a70"/>
+    <ellipse cx="16" cy="40" rx="10" ry="7" fill="#7a7d84"/>
+    <ellipse cx="10" cy="40" rx="2.8" ry="2.2" fill="#111216"/>
+    <ellipse cx="24" cy="34" rx="3.8" ry="3.2" fill="#d94d4d"/>
+    <ellipse cx="33" cy="32" rx="3.8" ry="3.2" fill="#d94d4d"/>
+    <circle cx="25" cy="34" r="1.6" fill="#17171b"/>
+    <circle cx="34" cy="32" r="1.6" fill="#17171b"/>
+    <path d="M19 24l-8-16 16 9z" fill="#505359"/>
+    <path d="M35 20l10-14 2 18z" fill="#505359"/>
+    <path d="M12 43c4 6 10 8 17 4" fill="none" stroke="#3b3d42" stroke-width="2" stroke-linecap="round"/>
+    <path d="M13 43l3 5 2-4 3 4" fill="none" stroke="#f4f4f4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="33" y="64" width="6" height="18" rx="3" fill="#4f5258"/>
+    <rect x="45" y="64" width="6" height="18" rx="3" fill="#4f5258"/>
+    <rect x="60" y="64" width="6" height="18" rx="3" fill="#4f5258"/>
+    <rect x="71" y="64" width="6" height="18" rx="3" fill="#4f5258"/>
+  </g>
 </svg>

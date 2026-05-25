@@ -1,38 +1,26 @@
 /* ============================================================
- * investigationSystem.js — Night Investigation Logic
+ * investigationSystem.js - Night Investigation Logic
  * ============================================================ */
 
-/**
- * Kiểm tra xem chuồng có sói không (chó sủa)
- * Chó KHÔNG sủa với sói con (dogDetect: false)
- */
 export function dogCheck(penId, infiltratedWolves, dogAvailable) {
   if (!dogAvailable) {
-    return { canCheck: false, reason: 'Chó đang kiệt sức, không thể giúp.' };
+    return { canCheck: false, reason: 'Cho dang kiet suc, khong the giup.' };
   }
+
   const wolvesInPen = infiltratedWolves.filter(
-    w => w.penId === penId && w.dogDetect !== false
+    (wolf) => wolf.penId === penId && wolf.dogDetect !== false
   );
+
   return {
     canCheck: true,
     hasDangerousWolf: wolvesInPen.length > 0,
-    // Chó chỉ cho biết CÓ/KHÔNG, không nói loại nào
   };
 }
 
-/**
- * Điều tra 1 con cừu cụ thể bằng phương pháp nhất định
- * @param {'check_paws'|'check_teeth'|'check_eyes'|'shear'} method
- * @param {object} targetSheepOrWolf - Con cừu (hoặc sói ngụy trang) được kiểm tra
- * @param {Array} infiltratedWolves
- * @returns {{ isWolf: boolean, wolfData: object|null, clue: string }}
- */
 export function investigateSheep(method, targetId, sheep, infiltratedWolves) {
-  // Tìm xem target có phải sói ngụy trang không
-  const wolf = infiltratedWolves.find(w => w.fakeSheepId === targetId);
+  const wolf = infiltratedWolves.find((candidate) => candidate.fakeSheepId === targetId);
 
   if (!wolf) {
-    // Cừu thật
     return {
       isWolf: false,
       wolfData: null,
@@ -40,7 +28,6 @@ export function investigateSheep(method, targetId, sheep, infiltratedWolves) {
     };
   }
 
-  // Là sói! Kiểm tra xem method có phát hiện được tells không
   const detected = canDetectWithMethod(method, wolf);
   if (detected) {
     return {
@@ -50,7 +37,6 @@ export function investigateSheep(method, targetId, sheep, infiltratedWolves) {
     };
   }
 
-  // Method không phù hợp → không phát hiện
   return {
     isWolf: false,
     wolfData: null,
@@ -58,15 +44,11 @@ export function investigateSheep(method, targetId, sheep, infiltratedWolves) {
   };
 }
 
-/**
- * Kiểm tra method có phát hiện được sói dựa trên tells
- */
 function canDetectWithMethod(method, wolf) {
-  // Trăng tròn: ẩn tất cả tells
-  if (wolf.tells.length === 0) return false;
-
-  // Cạo lông luôn phát hiện BẤT KỲ loại sói nào (lột ngụy trang)
+  // Shear should always reveal the disguise instead of depending on tells.
   if (method === 'shear') return true;
+
+  if (wolf.tells.length === 0) return false;
 
   const methodToTells = {
     check_paws: ['paws'],
@@ -75,47 +57,43 @@ function canDetectWithMethod(method, wolf) {
   };
 
   const detectableTells = methodToTells[method] || [];
-  return wolf.tells.some(t => detectableTells.includes(t));
+  return wolf.tells.some((tell) => detectableTells.includes(tell));
 }
 
 function getInnocentClue(method) {
   const clues = {
-    check_paws: '🐾 Chân bình thường, móng tròn gọn gàng.',
-    check_teeth: '🦷 Răng cỏ, không có gì bất thường.',
-    check_eyes: '👀 Mắt hiền, ánh nhìn ngây thơ.',
-    shear: '✂️ Lông mượt đều, da hồng khỏe mạnh.',
+    check_paws: 'Chan binh thuong, mong tron gon gang.',
+    check_teeth: 'Rang co, khong co gi bat thuong.',
+    check_eyes: 'Mat hien, anh nhin ngay tho.',
+    shear: 'Long muot deu, da hong khoe manh.',
   };
-  return clues[method] || 'Không phát hiện gì bất thường.';
+  return clues[method] || 'Khong phat hien gi bat thuong.';
 }
 
 function getWolfClue(method, wolf) {
   const clues = {
-    check_paws: `🐺 CHÂN QUÁ TO! Đây là ${wolf.name}!`,
-    check_teeth: `🐺 RĂNG NHỌN HOẮT! Đây là ${wolf.name}!`,
-    check_eyes: `🐺 MẮT ĐỎ NGẦU, nước dãi chảy ròng! ${wolf.name}!`,
-    shear: `🐺 XƯƠNG SƯỜN LỒI RA! Đây là ${wolf.name}!`,
+    check_paws: `CHAN QUA TO! Day la ${wolf.name}!`,
+    check_teeth: `RANG NHON HOAT! Day la ${wolf.name}!`,
+    check_eyes: `MAT DO NGAU, nuoc dai chay rong! ${wolf.name}!`,
+    shear: `Lo nguyen hinh! Day la ${wolf.name}!`,
   };
-  return clues[method] || `🐺 Phát hiện ${wolf.name}!`;
+  return clues[method] || `Phat hien ${wolf.name}!`;
 }
 
 function getInconclusiveClue(method) {
   const clues = {
-    check_paws: '🐾 Chân... hơi lạ nhưng không chắc.',
-    check_teeth: '🦷 Răng trông bình thường.',
-    check_eyes: '👀 Không thấy gì đặc biệt.',
-    shear: '✂️ Lông hơi thưa nhưng có thể do thời tiết.',
+    check_paws: 'Chan hoi la nhung khong chac.',
+    check_teeth: 'Rang trong binh thuong.',
+    check_eyes: 'Khong thay gi dac biet.',
+    shear: 'Long hoi thua nhung co the do thoi tiet.',
   };
-  return clues[method] || 'Không rõ ràng lắm...';
+  return clues[method] || 'Khong ro rang lam.';
 }
 
-/**
- * Gắn fake sheep ID cho mỗi sói khi spawn vào chuồng
- * (để hiển thị chung với cừu thật trong UI)
- */
 export function assignFakeSheepIds(wolves, nextSheepId) {
   let id = nextSheepId;
-  return wolves.map(w => ({
-    ...w,
+  return wolves.map((wolf) => ({
+    ...wolf,
     fakeSheepId: id++,
   }));
 }
