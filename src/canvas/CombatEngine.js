@@ -27,14 +27,16 @@ export class CombatEngine {
     this.running = false;
     this.animFrameId = null;
     this.lastTime = 0;
+    this.accumulator = 0;
 
     this._lastDamageDispatch = 0;
     this._pendingDamage = 0;
     this._pendingBleed = false;
     this._hitCooldownMs = 0;
 
-    this._onKeyDown = (e) => this.heart.handleKeyDown(e);
+    this._onKeyDown = (e) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) e.preventDefault(); this.heart.handleKeyDown(e); };
     this._onKeyUp = (e) => this.heart.handleKeyUp(e);
+    this._onBlur = () => { this.heart.keys = { up: false, down: false, left: false, right: false }; };
   }
 
   start() {
@@ -42,6 +44,7 @@ export class CombatEngine {
     this.lastTime = performance.now();
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('blur', this._onBlur);
     this._loop(performance.now());
   }
 
@@ -53,15 +56,17 @@ export class CombatEngine {
     }
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
+    window.removeEventListener('blur', this._onBlur);
   }
 
   _loop(now) {
     if (!this.running) return;
 
-    const dt = Math.min(now - this.lastTime, 33);
+    const dt = Math.min(now - this.lastTime, 100);
     this.lastTime = now;
-
-    this._update(dt);
+    if (document.hidden) { this.accumulator = 0; this.animFrameId = requestAnimationFrame(time => this._loop(time)); return; }
+    this.accumulator += dt;
+    while (this.accumulator >= 1000 / 60) { this._update(1000 / 60); this.accumulator -= 1000 / 60; }
     this._draw();
 
     this.animFrameId = requestAnimationFrame((time) => this._loop(time));
@@ -85,7 +90,7 @@ export class CombatEngine {
     if (hits.length > 0 && this._hitCooldownMs <= 0) {
       this._pendingDamage += this.wolf.damage;
       this._pendingBleed = this._pendingBleed || hits.some((bullet) => bullet.type === 'bleed');
-      this._hitCooldownMs = 220;
+      this._hitCooldownMs = 600;
 
       const now = performance.now();
       if (now - this._lastDamageDispatch >= 100) {
@@ -123,15 +128,23 @@ export class CombatEngine {
     if (this.isEnemyTurn) {
       this.bulletPool.draw(ctx);
       this.heart.draw(ctx);
+      if (this.wolf.specialMechanic === 'whiteout' && this.frame > 70) {
+        const pulse = (Math.sin((this.frame - 70) / 48) + 1) / 2;
+        const radius = 25 + pulse * BATTLE_BOX.w * 0.8;
+        const cx = BATTLE_BOX.x + BATTLE_BOX.w / 2, cy = BATTLE_BOX.y + BATTLE_BOX.h / 2;
+        const fog = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        fog.addColorStop(0, 'rgba(245,248,240,0.97)'); fog.addColorStop(0.65, 'rgba(245,248,240,0.82)'); fog.addColorStop(1, 'rgba(245,248,240,0)');
+        ctx.save(); ctx.beginPath(); ctx.rect(BATTLE_BOX.x, BATTLE_BOX.y, BATTLE_BOX.w, BATTLE_BOX.h); ctx.clip(); ctx.fillStyle = fog; ctx.fillRect(BATTLE_BOX.x, BATTLE_BOX.y, BATTLE_BOX.w, BATTLE_BOX.h); ctx.restore();
+      }
       ctx.fillStyle = '#ff6b6b';
       ctx.font = '14px "VT323", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('Soi dang tan cong!', CANVAS_WIDTH / 2, BATTLE_BOX.y - 10);
+      ctx.fillText('NÉ ĐẠN — WASD / MŨI TÊN', CANVAS_WIDTH / 2, BATTLE_BOX.y - 10);
     } else {
       ctx.fillStyle = '#4dabf7';
       ctx.font = '18px "VT323", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('Luot cua ban!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+      ctx.fillText('LƯỢT CỦA BẠN', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 
     ctx.fillStyle = '#ffffff';

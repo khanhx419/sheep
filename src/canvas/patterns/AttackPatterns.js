@@ -296,7 +296,30 @@ export function leanTrap(pool, frame, bounds, speed = 1) {
   }
 }
 
+export function alphaWalls(pool, frame, bounds, speed = 1) {
+  if (frame % 65 !== 0) return;
+  const gap = Math.floor(frame / 65) % 5;
+  for (let i = 0; i < 7; i++) if (i !== gap && i !== gap + 1) pool.spawn(bounds.x + (i + 0.5) * bounds.w / 7, bounds.y, 0, 1.5 * speed, { radius: 8, color: '#d9b06f' });
+}
+export function alphaRings(pool, frame, bounds, speed = 1) {
+  if (frame % 85 !== 0) return;
+  for (let i = 0; i < 12; i++) {
+    if (i === Math.floor(frame / 85) % 12 || i === (Math.floor(frame / 85) + 1) % 12) continue;
+    const angle = i / 12 * Math.PI * 2;
+    pool.spawn(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2, Math.cos(angle) * 1.8 * speed, Math.sin(angle) * 1.8 * speed, { radius: 7, color: '#bda36c' });
+  }
+}
+export function alphaMarch(pool, frame, bounds, speed = 1) {
+  if (frame % 70 !== 0) return;
+  const gap = Math.floor(frame / 70) % 5;
+  for (let i = 0; i < 7; i++) if (i !== gap && i !== gap + 1) pool.spawn(frame % 140 ? bounds.x : bounds.x + bounds.w, bounds.y + (i + 0.5) * bounds.h / 7, (frame % 140 ? 1 : -1) * speed, 0, { radius: 9, color: '#e0b68c' });
+}
+export function whitePulse(pool, frame, bounds, speed = 1) { normalRain(pool, frame, bounds, speed * 0.85); }
+export function whiteCross(pool, frame, bounds, speed = 1) { normalWave(pool, frame, bounds, speed * 0.9); }
+export function whiteVeil(pool, frame, bounds, speed = 1) { leanTrap(pool, frame, bounds, speed * 0.85); }
+
 export const PATTERN_REGISTRY = {
+  alphaWalls, alphaRings, alphaMarch, whitePulse, whiteCross, whiteVeil,
   normalRain,
   normalSpiral,
   normalWave,

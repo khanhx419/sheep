@@ -1,0 +1,27 @@
+html,body,#root{width:100%;height:100%;margin:0;overflow:hidden}
+.game-app.immersive{position:fixed;inset:0;width:100%;height:100dvh;max-width:none;margin:0;overflow:hidden;background:#14231d}
+.immersive:fullscreen{width:100vw;height:100vh}
+.immersive .game-viewport{position:absolute;inset:0}
+.immersive .barn-scene.fp-container{position:absolute;inset:0;width:100%;height:100%;min-height:0;aspect-ratio:auto;border:0;border-radius:0;margin:0}
+.immersive .landing{position:absolute;inset:0;min-height:0;height:100%;border:0;border-radius:0;margin:0}
+.immersive:not(.is-playing) .topbar{position:absolute;top:0;left:0;right:0;z-index:5;background:linear-gradient(#10251bd9,transparent);border:0;padding:22px 32px}
+.immersive .footer{display:none}
+.immersive .landing-copy{padding-top:110px}
+.immersive .modal-backdrop{position:absolute;inset:0;z-index:100;padding:20px;background:#07120dcc;backdrop-filter:blur(7px)}
+.immersive .modal{max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:thin}
+.immersive .modal input[type=range]{accent-color:#d7bd84}
+.settings-links{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:20px 0}
+.camp-menu>.button{margin-top:18px}.camp-menu .shop-scroll{max-height:36vh}.camp-menu .gdd-inventory{border:0;margin-top:0}
+.ingame-hud{position:absolute;inset:0;z-index:6;pointer-events:none;color:#f3e8cc;text-shadow:0 2px 8px #0009}
+.hud-status{position:absolute;left:28px;top:25px;min-width:200px}
+.hud-title{display:block;letter-spacing:3px;font-size:9px;color:#dbbd83;margin-bottom:10px}
+.hud-status>strong{display:block;font-size:19px;font-weight:500}.hud-status>strong span{font-size:12px;color:#c5cdb8}
+.hud-health{display:flex;align-items:center;gap:9px;margin:14px 0 7px}.hud-health>div{width:130px;height:5px;background:#09120b88;border-radius:5px;overflow:hidden}.hud-health i{display:block;height:100%;background:#c2ce8b}.hud-health b{font-size:11px;font-weight:500}.hud-status>small{font-size:10px;color:#ccd4bc}
+.hud-wallet{position:absolute;top:28px;right:28px;display:flex;gap:20px;flex-wrap:wrap;width:220px;justify-content:flex-end}.hud-wallet>span{display:flex;gap:7px;align-items:center;font-size:19px}.hud-wallet small{font-size:10px;color:#cbd1ba}.hud-money-track{width:100%;height:3px;background:#06150b77}.hud-money-track i{display:block;height:100%;background:#d7b978}
+.hud-nav{position:absolute;right:26px;bottom:28px;display:flex;gap:7px;pointer-events:auto}.hud-nav button{display:flex;align-items:center;gap:8px;border:1px solid #d4bf8b44;border-radius:6px;background:#13241cd9;backdrop-filter:blur(8px);color:#e8dcb9;padding:12px;font-size:11px}.hud-nav button:hover{background:#344937}.hud-nav kbd{font:inherit;font-size:9px;color:#c3ad7f;border:1px solid #d4bf8b33;border-radius:3px;padding:3px}
+.hud-report{position:absolute;left:28px;bottom:68px;max-width:min(420px,45vw);font-size:11px;line-height:1.8;color:#d3d8c4}.hud-report small{display:block;font-size:8px;color:#aabb98;margin-top:6px}
+.hud-busy .hud-status{opacity:.65}.hud-busy .hud-report{display:none}
+@media(pointer:fine){.immersive .fp-touch-pad{display:none}}
+.immersive .fp-world-label{top:150px;left:28px;right:28px}.immersive .fp-toolbar{top:92px;right:28px}.immersive .fp-bottom{padding:15px 28px}.immersive .fp-bottom>span:last-child{display:none}.immersive .fp-interact{bottom:90px}.immersive .fp-touch-pad{bottom:115px}.immersive .fp-inspect-panel{bottom:95px;right:28px;width:330px}
+.immersive .bullet-combat{padding-top:35px;padding-bottom:30px}.immersive .bullet-stage{max-height:55vh}.immersive .bullet-stage canvas{width:min(45%,440px)}
+@media(max-width:650px){.hud-status{left:15px;top:17px;min-width:0}.hud-title{font-size:7px;letter-spacing:2px}.hud-status>strong{font-size:15px}.hud-wallet{top:18px;right:15px;width:145px;gap:10px}.hud-wallet>span{font-size:15px}.hud-wallet small{font-size:8px}.hud-nav{right:12px;bottom:40px;gap:4px}.hud-nav button{padding:8px;font-size:9px;gap:4px}.hud-nav svg{display:none}.hud-report{left:15px;bottom:98px;font-size:9px;max-width:55vw}.immersive .fp-world-label{left:15px;top:143px}.immersive .fp-toolbar{right:15px;left:auto;top:85px}.immersive .fp-inspect-panel{width:auto;left:12px;right:12px;bottom:105px}.immersive .landing-copy{padding-top:100px}.immersive .modal-backdrop{padding:12px}.immersive .modal{max-height:calc(100dvh - 24px)}}

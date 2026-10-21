@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 3,
+  "game": {
+    "version": 3,
+    "phase": "day",
+    "day": 1,
+    "gold": 25,
+    "targetGold": 200,
+    "nextId": 9,
+    "player": {
+      "id": "player",
+      "hp": 100,
+      "maxHp": 100,
+      "energy": 2,
+      "maxEnergy": 2,
+      "weapon": "tool",
+      "ammo": 0,
+      "armor": null,
+      "damageBuff": 1
+    },
+    "flock": [
+      {
+        "id": "sheep-1",
+        "age": "adult",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-2",
+        "age": "adult",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-3",
+        "age": "adult",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-4",
+        "age": "adult",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-5",
+        "age": "adult",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-6",
+        "age": "adult",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-7",
+        "age": "baby",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      },
+      {
+        "id": "sheep-8",
+        "age": "baby",
+        "bornDay": 1,
+        "penId": 0,
+        "isSheared": false
+      }
+    ],
+    "wolves": [],
+    "residents": [],
+    "activeId": null,
+    "combat": null,
+    "defeated": 0,
+    "farm": {
+      "divided": false,
+      "roof": false,
+      "fed": true,
+      "weather": "sunny",
+      "nextSunny": false
+    },
+    "inventory": {
+      "hay": 0,
+      "battery": 2,
+      "sunDoll": 0,
+      "repairKit": 0,
+      "beer": 0,
+      "strengthPotion": 0,
+      "medicine": 0
+    },
+    "merchant": {
+      "present": true
+    },
+    "dog": {
+      "exhaustedThroughNight": 0,
+      "lastScan": null
+    },
+    "report": "Bạn mua Trại Sương để kiếm 200 xu cưới vợ. Chủ cũ để lại cuốn sổ về bầy sói được một vị thần trong rừng ban nhận thức.",
+    "log": [],
+    "hp": 100,
+    "sheep": 8,
+    "fence": 0,
+    "combatHp": null,
+    "combatDog": false,
+    "energy": 2,
+    "fullMoon": false,
+    "deityStage": 0
+  },
+  "wolfExamples": [
+    {
+      "id": "wolf-8-0",
+      "name": "Sói Alpha",
+      "minNight": 8,
+      "hp": 104,
+      "speed": 0.9,
+      "damage": 12,
+      "disguise": "adult",
+      "tell": "body",
+      "tells": [
+        "body"
+      ],
+      "dogDetect": true,
+      "eatRate": 2,
+      "evasion": 0,
+      "patternPool": [
+        "alphaWalls",
+        "alphaRings",
+        "alphaMarch"
+      ],
+      "clue": "Bụng lớn bất thường dưới bộ lông.",
+      "mechanic": "Một đêm ăn 2 cừu. Máu nhiều, đạn chậm.",
+      "speciesName": "Sói Alpha",
+      "type": "alpha",
+      "evolution": 2,
+      "hidden": false,
+      "wolf": true,
+      "penId": 1,
+      "invadedDay": 8,
+      "eatenProgress": 0,
+      "checked": [],
+      "defeated": false
+    },
+    {
+      "id": "wolf-8-1",
+      "name": "Sói Alpha",
+      "minNight": 8,
+      "hp": 104,
+      "speed": 0.9,
+      "damage": 12,
+      "disguise": "adult",
+      "tell": "body",
+      "tells": [
+        "body"
+      ],
+      "dogDetect": true,
+      "eatRate": 2,
+      "evasion": 0,
+      "patternPool": [
+        "alphaWalls",
+        "alphaRings",
+        "alphaMarch"
+      ],
+      "clue": "Bụng lớn bất thường dưới bộ lông.",
+      "mechanic": "Một đêm ăn 2 cừu. Máu nhiều, đạn chậm.",
+      "speciesName": "Sói Alpha",
+      "type": "alpha",
+      "evolution": 2,
+      "hidden": false,
+      "wolf": true,
+      "penId": 1,
+      "invadedDay": 8,
+      "eatenProgress": 0,
+      "checked": [],
+      "defeated": false
+    }
+  ]
+}

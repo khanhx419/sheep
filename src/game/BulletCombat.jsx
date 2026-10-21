@@ -1,0 +1,63 @@
+import { useEffect, useRef, useState } from 'react';
+import { CombatEngine } from '../canvas/CombatEngine.js';
+import { calculateStrike, ITEMS, WOLVES } from './catalog.js';
+import { dogAvailable } from './rules.js';
+import { ART, Icon } from './ui.jsx';
+import { sound } from './audio.js';
+
+export default function CombatPhase({ state, dispatch }) {
+  const wolf = state.residents.find(a => a.id === state.activeId);
+  const speciesName = wolf.speciesName || WOLVES[wolf.type]?.name || wolf.name;
+  const canvas = useRef(null), engine = useRef(null), needle = useRef(null), position = useRef(0), lock = useRef(false);
+  const [turn, setTurn] = useState(state.combatHp === 0 ? 'victory' : 'player'), [aiming, setAiming] = useState(false), [items, setItems] = useState(false);
+  const [message, setMessage] = useState('Chọn Attack để căn thanh đánh. Đến lượt sói, di chuyển trái tim để né đạn.');
+  const latest = useRef(null); latest.current = { state, turn, aiming };
+  useEffect(() => {
+    const instance = new CombatEngine(canvas.current, { ...wolf, name: speciesName, hp: state.combatHp }, (damage, bleed) => { sound('hit'); dispatch({ type: 'DAMAGE', amount: damage, bleed }); }, () => { dispatch({ type: 'END_DODGE' }); lock.current = false; setTurn('player'); setMessage('Đã hết chuỗi đạn. Chọn Attack, Items hoặc Call Dog.'); });
+    engine.current = instance; instance.isEnemyTurn = false; instance.start();
+    return () => { instance.stop(); engine.current = null; };
+  }, [state.activeId, dispatch]);
+  useEffect(() => { engine.current?.updateWolf({ ...wolf, name: speciesName, hp: state.combatHp }); }, [wolf, speciesName, state.combatHp]);
+  useEffect(() => {
+    if (!aiming) return;
+    let frame, start = performance.now();
+    const draw = now => { position.current = (Math.sin((now - start) / (state.player.weapon === 'gun' ? 700 : 360)) + 1) / 2; if (needle.current) needle.current.style.left = `${position.current * 100}%`; frame = requestAnimationFrame(draw); };
+    frame = requestAnimationFrame(draw); return () => cancelAnimationFrame(frame);
+  }, [aiming, state.player.weapon]);
+  useEffect(() => {
+    if (turn !== 'victory') return;
+    sound('win'); const timer = setTimeout(() => dispatch({ type: 'WON_FIGHT' }), 1100); return () => clearTimeout(timer);
+  }, [turn, dispatch]);
+  function enemyTurn() { setAiming(false); setItems(false); setTurn('enemy'); engine.current?.startEnemyTurn(); }
+  function attack() {
+    if (turn !== 'player' || lock.current) return;
+    if (state.player.weapon === 'gun' && !state.player.ammo) { setMessage('Súng hết đạn. Hãy đổi sang nông cụ hoặc mua đạn từ thương nhân.'); return; }
+    if (!aiming) { setAiming(true); setMessage('Bấm Attack lần nữa hoặc Space khi kim đến vùng vàng.'); return; }
+    lock.current = true;
+    const roll = Math.random(), result = calculateStrike(position.current, state.player, wolf, state.combatDog, () => roll);
+    dispatch({ type: 'STRIKE', position: position.current, roll }); sound('hit');
+    setMessage(`${result.label} ${result.damage ? `−${result.damage} HP sói.` : ''}`); setAiming(false);
+    if (state.combatHp <= result.damage) setTurn('victory'); else enemyTurn();
+  }
+  useEffect(() => {
+    const key = e => { if (e.code === 'Space' && !e.repeat && !/INPUT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); attack(); } };
+    window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
+  });
+  function useItem(id) {
+    if (turn !== 'player' || aiming || lock.current || !state.inventory[id]) return;
+    lock.current = true; dispatch({ type: 'USE', item: id }); setMessage(`Đã dùng ${ITEMS[id].name}.`); enemyTurn();
+  }
+  function dragHeart(event) {
+    if (turn !== 'enemy') return;
+    event.preventDefault(); const rect = canvas.current.getBoundingClientRect(), heart = engine.current?.heart;
+    if (!heart) return;
+    heart.x = Math.max(67, Math.min(333, (event.clientX - rect.left) / rect.width * 400)); heart.y = Math.max(67, Math.min(333, (event.clientY - rect.top) / rect.height * 400));
+  }
+  return <div className="bullet-combat"><div className="bullet-heading"><span className="eyebrow">{speciesName} · TIẾN HÓA {wolf.evolution}</span><h2>{turn === 'victory' ? 'Sói đã bị đánh bại.' : 'Giữ trái tim trong khung.'}</h2><div className="wolf-health"><span style={{ width: `${state.combatHp / state.combat.wolfMaxHp * 100}%` }} /></div><small>{state.combatHp}/{state.combat.wolfMaxHp} HP · {wolf.mechanic}</small></div>
+    <div className="bullet-stage"><div className="bullet-wolf"><img src={`${ART}/wolf.png`} alt={speciesName} /><p>{state.player.weapon === 'gun' ? `Súng · ${state.player.ammo} viên` : 'Nông cụ · Không tốn tài nguyên'}</p><small>{state.player.armor ? `Giáp ${state.player.armor.durability}/${state.player.armor.maxDurability}` : 'Không có giáp'}{state.combat.bleedTurns > 0 && ` · Chảy máu ${state.combat.bleedTurns} lượt`}</small>{state.combatDog && <span>Chó hỗ trợ: +20% sát thương{state.combat.shieldAvailable ? ' · Còn đỡ 1 đòn' : ''}</span>}</div><canvas width="400" height="400" ref={canvas} aria-label="Khung né đạn: di chuyển trái tim bằng WASD hoặc mũi tên" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragHeart(e); }} onPointerMove={e => e.buttons && dragHeart(e)} /></div>
+    <div className="bullet-console"><p role="status">{message}</p>{aiming && <div className={`aim-meter ${state.player.weapon === 'gun' ? 'gun-meter' : ''}`}><span className="good-zone" /><span className="perfect-zone" /><i ref={needle} /><b>ATTACK · SPACE ĐỂ CHỐT</b></div>}
+      <div className="combat-buttons"><button className="button primary" disabled={turn !== 'player'} onClick={attack}>{aiming ? 'Chốt Attack' : 'Attack'}<kbd>Space</kbd></button><button className="button secondary" disabled={turn !== 'player' || aiming} onClick={() => setItems(v => !v)}>Items</button><button className="button secondary" disabled={turn !== 'player' || aiming || state.combatDog || !dogAvailable(state)} onClick={() => { dispatch({ type: 'DOG' }); sound('bark'); setMessage('Chó đỡ một đòn, tăng 20% sát thương. Đêm sau sẽ kiệt sức.'); }}>Call Dog</button><button className="button secondary" disabled={turn !== 'player' || aiming} onClick={() => dispatch({ type: 'SWITCH_WEAPON' })}>Đổi vũ khí</button></div>
+      {items && <div className="combat-items">{['medicine', 'repairKit', 'strengthPotion'].map(id => <button key={id} disabled={!state.inventory[id] || id === 'medicine' && state.hp >= 100 || id === 'repairKit' && (!state.player.armor || state.player.armor.durability === state.player.armor.maxDurability) || id === 'strengthPotion' && state.player.damageBuff > 1} onClick={() => useItem(id)}>{ITEMS[id].name} ×{state.inventory[id]}</button>)}</div>}
+      <small>{turn === 'enemy' ? 'WASD / MŨI TÊN để né · Điện thoại: kéo trái tim trên Canvas' : 'Nông cụ Critical hẹp · Súng dễ Critical, mỗi phát tốn 1 viên'}</small>
+    </div></div>;
+}

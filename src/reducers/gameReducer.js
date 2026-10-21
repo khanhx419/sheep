@@ -339,7 +339,7 @@ export function gameReducer(state, action) {
       // === Kiểm tra Lose Condition ngay sau khi sói ăn cừu ===
       const totalRemainingWolves = [...state.infiltratedWolves, ...wolvesToSpawn].length;
       const totalRemainingSheep = updatedSheep.length;
-      const isLose = totalRemainingSheep > 0 && totalRemainingWolves >= totalRemainingSheep * LOSE_RATIO;
+      const isLose = totalRemainingSheep > 0 && totalRemainingWolves > totalRemainingSheep * LOSE_RATIO;
 
       return {
         ...state,
@@ -368,7 +368,7 @@ export function gameReducer(state, action) {
     case 'CHECK_LOSE': {
       const totalSheep = state.sheep.length;
       const totalWolves = state.infiltratedWolves.length;
-      if (totalSheep > 0 && totalWolves >= totalSheep * LOSE_RATIO) {
+      if (totalSheep > 0 && totalWolves > totalSheep * LOSE_RATIO) {
         return { ...state, phase: 'LOSE', loseReason: 'overrun' };
       }
       return state;

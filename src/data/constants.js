@@ -2,7 +2,7 @@
  * constants.js - Game Balance Constants
  * ============================================================ */
 
-export const TARGET_GOLD = 100;
+export const TARGET_GOLD = 200;
 export const STARTING_GOLD = 10;
 export const INCOME_PER_ADULT_SHEEP = 1;
 export const STARTING_SHEEP_COUNT = 5;
@@ -10,7 +10,7 @@ export const BABY_GROW_DAYS = 2;
 export const SHEAR_COST = 2;
 
 export const PLAYER_MAX_HP = 100;
-export const PLAYER_ENERGY_PER_NIGHT = 5;
+export const PLAYER_ENERGY_PER_NIGHT = 2;
 export const DOG_DAMAGE_BUFF = 0.2;
 
 export const BATTLE_BOX = { x: 60, y: 60, w: 280, h: 280 };
@@ -32,7 +32,7 @@ export const MISS_MULTIPLIER = 0.3;
 export const WOLF_BASE_COUNT = 1;
 export const WOLF_PER_NIGHTS = 3;
 export const WOLF_CAP_RATIO = 0.3;
-export const LOSE_RATIO = 0.75;
+export const LOSE_RATIO = 0.5;
 
 export const FULL_MOON_CYCLE = 7;
 export const RAIN_CHANCE = 0.25;
