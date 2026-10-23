@@ -1,10 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceDawn, gameReducer as reduce, makeResidents, newGame, readSave, SAVE_KEY, dogAvailable, overrun } from './rules.js';
+import { advanceDawn, gameReducer as reduce, makeResidents, newGame, readSave, SAVE_KEY, dogAvailable, overrun, farmAnimals, visibleHerdCount } from './rules.js';
 import { WOLVES, evolveWolf, spawnWolves, absorbDamage, calculateStrike } from './catalog.js';
 import { PATTERN_REGISTRY } from '../canvas/patterns/AttackPatterns.js';
 import { BulletPool } from '../canvas/BulletPool.js';
 import { CombatEngine } from '../canvas/CombatEngine.js';
+
+test('herd presentation counts disguised wolves, hides names and keeps real economy separate', () => {
+  let s = newGame(); s.flock = s.flock.slice(0, 7);
+  assert.equal(visibleHerdCount(s), 7);
+  const wolf = { ...evolveWolf('normal', 1), id: 'hidden-wolf', wolf: true, penId: 0, name: 'Sói thường', checked: [] };
+  s = reduce(s, { type: 'NIGHT', residents: [wolf, ...s.flock.map(a => ({ ...a, wolf: false, checked: [], name: 'Tên riêng' }))] });
+  assert.equal(s.sheep, 7, 'income and overrun still use real sheep');
+  assert.equal(visibleHerdCount(s), 8, 'HUD matches all eight visible bodies');
+  for (const difficulty of ['easy', 'normal', 'hard']) assert.deepEqual(farmAnimals({ ...s, difficulty }).map(a => a.name), ['#01', '#02', '#03', '#04', '#05', '#06', '#07', '#08']);
+  const defeated = { ...s, residents: s.residents.map(a => a.id === wolf.id ? { ...a, defeated: true } : a) };
+  assert.equal(visibleHerdCount(defeated), 7); assert.equal(farmAnimals(defeated)[0].name, '#02', 'remaining tags do not shift');
+  assert.equal(visibleHerdCount({ ...s, phase: 'day' }), 7);
+});
+
+test('daytime chores produce bounded hay, persistent crops and close the pasture at night', () => {
+  let s = reduce(newGame(), { type: 'PASTURE' }); assert.equal(s.farm.pastureOpen, true);
+  s = reduce(s, { type: 'CUT_GRASS' }); s = reduce(s, { type: 'CUT_GRASS' });
+  assert.equal(s.inventory.hay, 4); assert.equal(reduce(s, { type: 'CUT_GRASS' }).inventory.hay, 4);
+  s = reduce(s, { type: 'WATER' }); assert.equal(s.farm.watered, true);
+  s = reduce(s, { type: 'NIGHT', residents: [] }); assert.equal(s.farm.pastureOpen, false);
+  assert.equal(reduce(s, { type: 'CUT_GRASS' }).inventory.hay, 4);
+  s = advanceDawn(s, () => .9); assert.equal(s.farm.grassCut, 0); assert.equal(s.farm.cropGrowth, 1);
+  for (let i = 0; i < 2; i++) { s = reduce(s, { type: 'WATER' }); s = advanceDawn({ ...s, residents: [] }, () => .9); }
+  const gold = s.gold; s = reduce(s, { type: 'HARVEST' }); assert.equal(s.gold, gold + 4);
+  assert.equal(reduce(s, { type: 'HARVEST' }).gold, s.gold);
+});
+
+test('sun doll overrides weather and removed rain dolls cannot be used', () => {
+  let s = newGame(); s.inventory = { ...s.inventory, sunDoll: 1, rainDoll: 1 };
+  s = reduce(s, { type: 'USE', item: 'sunDoll' }); s = reduce(s, { type: 'USE', item: 'rainDoll' });
+  assert.equal(s.farm.nextSunny, true); assert.equal(s.inventory.rainDoll, undefined);
+  s = advanceDawn({ ...s, residents: [] }, () => .9);
+  assert.equal(s.farm.weather, 'sunny');
+  s = { ...s, farm: { ...s.farm, weather: 'rainy' } };
+  assert.equal(reduce(s, { type: 'CUT_GRASS' }).inventory.hay, 0);
+});
+
+test('sleep from night still resolves surviving wolves and advances exactly one morning', () => {
+  let s = newGame(); const wolf = { ...evolveWolf('normal', 1), id: 'sleep-wolf', wolf: true, penId: 0 };
+  s = reduce(s, { type: 'NIGHT', residents: [wolf] }); const count = s.sheep;
+  s = reduce(s, { type: 'SLEEP', random: () => .9 });
+  assert.equal(s.phase, 'day'); assert.equal(s.day, 2); assert.equal(s.sheep, count - 1); assert.equal(s.wolves.length, 1);
+  const fromDay = reduce(newGame(), { type: 'SLEEP', random: () => .9 }); assert.equal(fromDay.day, 2);
+});
 
 function wolf(type = 'normal', day = 1) { return { ...evolveWolf(type, day), id: `test-${type}`, wolf: true, penId: 0, checked: [], name: 'Cừu 01', defeated: false, eatenProgress: 0 }; }
 function atNight(type = 'normal', day = 1) { const s = { ...newGame(), day }; return reduce(s, { type: 'NIGHT', residents: [wolf(type, day), ...s.flock.map(a => ({ ...a, wolf: false, checked: [], name: 'Cừu thật' }))] }); }
@@ -23,25 +67,39 @@ test('one adult earns one gold; babies mature after two days without earning ear
   const start = newGame();
   const day2 = advanceDawn({ ...start, residents: [] }, () => 0.9);
   assert.equal(day2.gold - start.gold, 6); assert.equal(day2.flock.filter(s => s.age === 'baby').length, 2);
-  const day3 = advanceDawn({ ...day2, residents: [] }, () => 0.9);
+  const day3 = advanceDawn({ ...day2, farm: { ...day2.farm, fed: true }, residents: [] }, () => 0.9);
   assert.equal(day3.gold - day2.gold, 6); assert.equal(day3.flock.filter(s => s.age === 'adult').length, 8);
-  assert.equal(advanceDawn({ ...day3, residents: [] }, () => 0.9).gold - day3.gold, 8);
+  assert.equal(advanceDawn({ ...day3, farm: { ...day3.farm, fed: true }, residents: [] }, () => 0.9).gold - day3.gold, 8);
 });
-test('rain needs hay or a roof and the sunshine doll changes tomorrow weather', () => {
+test('rain needs hay even with a roof and the sunshine doll changes tomorrow weather', () => {
   let s = { ...newGame(), farm: { ...newGame().farm, weather: 'rainy', fed: false } };
+  s.flock = s.flock.map(a => ({ ...a, hunger: 35 }));
   assert.equal(advanceDawn({ ...s, residents: [] }, () => 0).gold, s.gold);
   s = reduce(s, { type: 'BUY', item: 'hay' }); s = reduce(s, { type: 'FEED' });
   assert.equal(s.farm.fed, true); assert.equal(s.inventory.hay, 0);
   s = reduce(s, { type: 'BUY', item: 'sunDoll' }); s = reduce(s, { type: 'USE', item: 'sunDoll' });
   assert.equal(advanceDawn({ ...s, residents: [] }, () => 0).farm.weather, 'sunny');
-  assert.equal(reduce({ ...newGame(), farm: { ...newGame().farm, fed: false } }, { type: 'BUY', item: 'roof' }).farm.fed, true);
+  assert.equal(reduce({ ...newGame(), farm: { ...newGame().farm, fed: false } }, { type: 'UPGRADE_FARM', item: 'roof' }).farm.fed, false);
 });
-test('shops enforce prices, merchant presence and unique farm upgrades', () => {
-  let s = reduce(newGame(), { type: 'BUY', item: 'fence' });
-  assert.equal(s.gold, 20); assert.equal(s.farm.divided, true); assert.deepEqual(new Set(s.flock.map(a => a.penId)), new Set([0, 1]));
-  assert.equal(reduce(s, { type: 'BUY', item: 'fence' }).gold, 20);
-  assert.equal(reduce({ ...s, merchant: { present: false } }, { type: 'BUY', item: 'ammo' }).player.ammo, 0);
-  assert.equal(reduce({ ...s, gold: 0 }, { type: 'BUY', item: 'roof' }).farm.roof, false);
+test('one daily construction improves a single shared enclosure and vendor stock stays available', () => {
+  let s = reduce(newGame(), { type: 'UPGRADE_FARM', item: 'fence' });
+  assert.equal(s.gold, 21); assert.equal(s.farm.divided, false); assert.deepEqual(new Set(s.flock.map(a => a.penId)), new Set([0]));
+  assert.equal(reduce(s, { type: 'UPGRADE_FARM', item: 'expand' }).gold, 21);
+  assert.equal(reduce({ ...s, merchant: { present: false } }, { type: 'BUY', item: 'ammo' }).player.ammo, 1);
+  s = advanceDawn({ ...s, residents: [] }, () => .9);
+  s = reduce(s, { type: 'UPGRADE_FARM', item: 'expand' }); assert.equal(s.farm.capacity, 12);
+  assert.equal(reduce({ ...s, gold: 0 }, { type: 'UPGRADE_FARM', item: 'roof' }).farm.roof, false);
+});
+
+test('weapon purchases unlock guns and armor bonuses stop when durability reaches zero', () => {
+  let s = newGame(); assert.equal(reduce(s, { type: 'SWITCH_WEAPON' }).player.weapon, 'tool');
+  s = reduce(s, { type: 'BUY', item: 'gun' }); assert.equal(s.player.ammo, 3); assert.equal(s.player.ownsGun, true);
+  assert.equal(reduce(s, { type: 'SWITCH_WEAPON' }).player.weapon, 'gun');
+  const wolf = evolveWolf('normal', 1), player = newGame().player;
+  const base = calculateStrike(.5, player, wolf, false, () => 1).damage;
+  assert.ok(calculateStrike(.5, { ...player, toolBonus: .35 }, wolf, false, () => 1).damage > base);
+  assert.ok(calculateStrike(.5, { ...player, armor: { itemId: 'armorHeavy', durability: 40 } }, wolf, false, () => 1).damage > base);
+  assert.equal(calculateStrike(.5, { ...player, armor: { itemId: 'armorHeavy', durability: 0 } }, wolf, false, () => 1).damage, base);
 });
 test('investigation spends one of two energy; repeated checks are free; shearing uses a 2-gold battery', () => {
   let s = atNight();
@@ -80,14 +138,15 @@ test('lean wolves eat one every two days while Alpha eats two per night', () => 
   d = advanceDawn({ ...d, residents: d.wolves }, () => 0.9); assert.equal(d.sheep, 7);
   assert.equal(advanceDawn(atNight('alpha', 8), () => 0.9).sheep, 6);
 });
-test('dog detects no pups, blocks one blow, buffs damage and is exhausted the following night', () => {
+test('Shiba scan blocks combat support until morning; fighting alone has no cooldown', () => {
   let s = reduce(atNight('pup', 4), { type: 'DOG_SCAN', penId: 0 }); assert.equal(s.dog.lastScan.danger, false);
   s = reduce(atNight(), { type: 'DOG_SCAN', penId: 0 }); assert.equal(s.dog.lastScan.danger, true);
-  s = reduce(fighting(), { type: 'DOG' }); assert.equal(s.combat.shieldAvailable, true); assert.equal(s.dog.exhaustedThroughNight, 2);
+  assert.equal(dogAvailable(s), false); assert.equal(dogAvailable({ ...s, day: 2 }), true);
+  s = reduce(fighting(), { type: 'DOG' }); assert.equal(s.combat.shieldAvailable, true); assert.equal(s.dog.exhaustedThroughNight, 0);
   s = reduce(s, { type: 'DAMAGE', amount: 90, bleed: true }); assert.equal(s.hp, 100); assert.equal(s.combat.shieldAvailable, false);
   s = reduce(s, { type: 'DAMAGE', amount: 10 }); assert.equal(s.hp, 90);
-  assert.equal(dogAvailable({ ...s, day: 2 }), false); assert.equal(dogAvailable({ ...s, day: 3 }), true);
-  assert.equal(calculateStrike(0.5, s.player, wolf(), true, () => 1).damage, 36);
+  assert.equal(dogAvailable({ ...s, day: 2 }), true);
+  assert.equal(calculateStrike(0.5, s.player, wolf(), true, () => 1).damage, 18);
 });
 test('armor absorbs before HP, repair restores durability, and penetrating rabid hits bleed', () => {
   const player = { ...newGame().player, armor: { durability: 5, maxDurability: 20 } };
@@ -104,7 +163,7 @@ test('guns need ammo, consume one per shot and have a wider critical zone; lean 
   assert.equal(calculateStrike(0.65, { ...player, weapon: 'gun', ammo: 1 }, wolf(), false, () => 1).label, 'Critical!');
   assert.notEqual(calculateStrike(0.65, player, wolf(), false, () => 1).label, 'Critical!');
   assert.equal(calculateStrike(0.5, player, wolf('lean'), false, () => 0.29).damage, 0);
-  assert.equal(calculateStrike(0.5, player, wolf('lean'), false, () => 0.31).damage, 30);
+  assert.equal(calculateStrike(0.5, player, wolf('lean'), false, () => 0.31).damage, 18);
   let s = fighting(); s = { ...s, player: { ...s.player, weapon: 'gun', ammo: 1 } };
   s = reduce(s, { type: 'STRIKE', position: 0.5, roll: 0.9 }); assert.equal(s.player.ammo, 0);
 });

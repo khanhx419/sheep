@@ -7,16 +7,18 @@ export const WOLVES = {
   white: { id: 'white', name: 'Sói trắng', minNight: 8, hp: 48, speed: 1.1, damage: 8, disguise: 'adult', tell: null, tells: [], dogDetect: true, eatRate: 1, evasion: 0, specialMechanic: 'whiteout', patternPool: ['whitePulse', 'whiteCross', 'whiteVeil'], clue: 'Ngụy trang hoàn hảo; phải cạo lông để xác định.', mechanic: 'Sương trắng che từ giữa màn hình ra ngoài khi né đạn.' },
 };
 export const ITEMS = {
+  clipper: { id: 'clipper', name: 'Tông đơ', price: 6, shop: 'basic', description: 'Dụng cụ cạo lông, có sẵn một chiếc. Mỗi lần cạo dùng một pin.' },
   hay: { id: 'hay', name: 'Cỏ khô', price: 1, shop: 'basic', description: 'Một bó cho đàn ăn trong một ngày mưa.' },
   battery: { id: 'battery', name: 'Pin tông đơ', price: 2, shop: 'basic', description: 'Một lần cạo lông; dùng thêm 1 năng lượng.' },
   sunDoll: { id: 'sunDoll', name: 'Búp bê cầu nắng', price: 3, shop: 'basic', description: 'Dùng để bảo đảm sáng mai trời nắng.' },
-  fence: { id: 'fence', name: 'Hàng rào chia chuồng', price: 5, shop: 'basic', description: 'Chia A/B; kiểm tra theo chuồng bằng chó.' },
-  roof: { id: 'roof', name: 'Mái che', price: 8, shop: 'basic', description: 'Che mưa cho đàn, không cần cỏ khô.' },
+  roof: { id: 'roof', name: 'Mái che', price: 8, shop: 'construction', description: 'Che mưa cho đàn, không cần cỏ khô.' },
+  axe: { id: 'axe', name: 'Rìu thép', price: 9, shop: 'merchant', weaponBonus: .35, description: 'Nâng nông cụ: +35% sát thương cận chiến, dùng vô hạn.' },
+  gun: { id: 'gun', name: 'Súng săn', price: 18, shop: 'merchant', description: 'Mở khóa súng, kèm 3 viên đạn. Đổi vũ khí trong trận đấu.' },
   sheep: { id: 'sheep', name: 'Cừu lớn', price: 10, shop: 'basic', description: 'Tạo 1 xu/ngày. Tối đa 16 cừu.' },
   lamb: { id: 'lamb', name: 'Cừu con', price: 6, shop: 'basic', description: 'Lớn sau 2 ngày, lúc nhỏ chưa có thu nhập.' },
   ammo: { id: 'ammo', name: 'Đạn súng', price: 3, shop: 'merchant', description: 'Một viên cho một phát bắn.' },
-  armorLight: { id: 'armorLight', name: 'Giáp nhẹ', price: 8, shop: 'merchant', durability: 20, description: '20 độ bền; hấp thụ sát thương trước HP.' },
-  armorHeavy: { id: 'armorHeavy', name: 'Giáp nặng', price: 15, shop: 'merchant', durability: 40, description: '40 độ bền; mua là trang bị ngay.' },
+  armorLight: { id: 'armorLight', name: 'Giáp nhẹ', price: 8, shop: 'merchant', durability: 20, attackBonus: .1, description: '20 độ bền, +10% sát thương khi giáp còn bền.' },
+  armorHeavy: { id: 'armorHeavy', name: 'Giáp nặng', price: 15, shop: 'merchant', durability: 40, attackBonus: .2, description: '40 độ bền, +20% sát thương khi giáp còn bền.' },
   repairKit: { id: 'repairKit', name: 'Bộ sửa giáp', price: 4, shop: 'merchant', description: 'Dùng để phục hồi 15 độ bền.' },
   beer: { id: 'beer', name: 'Bia thợ săn', price: 3, shop: 'merchant', description: 'Hồi 2 năng lượng, dùng ngoài chiến đấu.' },
   strengthPotion: { id: 'strengthPotion', name: 'Thuốc tăng lực', price: 6, shop: 'merchant', description: '+50% sát thương đến hết trận tiếp theo.' },
@@ -50,6 +52,7 @@ export function calculateStrike(position, player, wolf, dogUsed = false, random 
   const fired = player.weapon === 'gun';
   if (random() < wolf.evasion) return { damage: 0, label: 'Sói né được đòn!', fired };
   const distance = Math.abs(position - 0.5), critical = distance <= (fired ? 0.18 : 0.06), good = distance <= (fired ? 0.35 : 0.22);
-  const damage = Math.round((fired ? 32 : 15) * (critical ? 2 : good ? 1 : 0.4) * (dogUsed ? 1.2 : 1) * (player.damageBuff || 1));
+  const armorBonus = player.armor?.durability > 0 ? ITEMS[player.armor.itemId]?.attackBonus || 0 : 0;
+  const damage = Math.round((fired ? 24 : 11 * (1 + (player.toolBonus || 0))) * (critical ? 1.6 : good ? 1 : 0.4) * (dogUsed ? 1.05 : 1) * (player.damageBuff || 1) * (1 + armorBonus));
   return { damage, label: critical ? 'Critical!' : good ? 'Đánh trúng!' : 'Đòn sượt', fired };
 }

@@ -4,8 +4,25 @@ export const SHEEP_NAMES = ['Bông', 'Mây', 'Sữa', 'Bắp', 'Mochi', 'Mè', '
 export const TELLS = ['eyes', 'paws', 'teeth', 'body', 'tail'];
 export const TARGET_GOLD = 200;
 
-function sheepEntity(id, age, day, penId = 0) { return { id, age, bornDay: day, penId, isSheared: false }; }
+// Presentation must count disguises and never expose an internal species/name.
+// Map before filtering so a defeated animal doesn't renumber the remaining herd.
+export function farmAnimals(state) {
+  const night = ['night', 'reveal', 'combat'].includes(state.phase);
+  return (night ? state.residents : state.flock).map((animal, index) => ({ ...animal, name: `#${String(index + 1).padStart(2, '0')}`, checked: animal.checked || [] })).filter(animal => !animal.defeated);
+}
+export function visibleHerdCount(state) { return farmAnimals(state).length; }
+
+function sheepEntity(id, age, day, penId = 0) { return { id, age, bornDay: day, penId, isSheared: false, hunger: 100, hp: 100 }; }
 function projection(state) {
+  state = { ...state, farm: { pastureOpen: false, watered: false, grassCut: 0, cropGrowth: 0, cropHarvested: false, nextRain: false, ...state.farm, storedHay: state.inventory.hay }, inventory: { clipper: 1, rainDoll: 0, ...state.inventory } };
+  state.farm = { fenceLevel: state.farm.divided ? 1 : 0, expansion: Math.max(0, Math.ceil((state.flock.length - 8) / 4)), upgradedDay: 0, ...state.farm, divided: false };
+  state.farm.capacity = Math.min(16, Math.max(state.flock.length, 8 + state.farm.expansion * 4));
+  state.player = { toolBonus: 0, ownsGun: state.player.weapon === 'gun', ...state.player };
+  for (const key of ['flock', 'wolves', 'residents']) state[key] = state[key].map(a => a.penId ? { ...a, penId: 0 } : a);
+  state.difficulty = ['easy', 'normal', 'hard'].includes(state.difficulty) ? state.difficulty : 'normal';
+  state.player = { clipperUses: 0, ...state.player };
+  state.flock = state.flock.map(a => ({ hunger: 100, hp: 100, ...a }));
+  delete state.inventory.rainDoll; state.farm.nextRain = false;
   return { ...state, hp: state.player.hp, sheep: state.flock.length, fence: Number(state.farm.divided), combatHp: state.combat?.wolfHp ?? null,
     combatDog: state.combat?.dogUsed || false, energy: state.player.energy, fullMoon: state.day % 7 === 0, deityStage: Math.min(1, Math.max(0, (state.day - 1) / 14)) };
 }
@@ -45,11 +62,12 @@ export function advanceDawn(state, random = Math.random) {
   const income = state.farm.fed ? flock.filter(s => s.age === 'adult').length : 0;
   const day = state.day + 1;
   flock = flock.map(s => ({ ...s, age: s.age === 'baby' && day - s.bornDay >= 2 ? 'adult' : s.age, isSheared: false }));
-  const weather = state.farm.nextSunny || random() >= 0.25 ? 'sunny' : 'rainy';
+  const weather = state.farm.nextSunny ? 'sunny' : random() >= 0.25 ? 'sunny' : 'rainy';
+  flock = flock.map(s => ({ ...s, hunger: Math.max(0, (s.hunger ?? 100) - 65) }));
   const report = `${eaten ? `Sói ăn mất ${eaten} cừu.` : 'Đàn cừu qua đêm an toàn.'} Thu ${income} xu (${state.farm.fed ? '1 xu/cừu lớn' : 'đàn đói trong ngày mưa'}). ${day % 7 === 0 ? 'Đêm tới trăng tròn: chỉ còn tiếng hú, phải cạo lông.' : ''}`;
   const lost = overrun(flock.length, wolves.length);
   return projection({ ...state, day, phase: lost ? 'lose' : 'day', gold: state.gold + income, flock, wolves, residents: [], activeId: null, combat: null,
-    farm: { ...state.farm, weather, fed: weather === 'sunny' || state.farm.roof, nextSunny: false }, merchant: { present: random() < 0.35 },
+    farm: { ...state.farm, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, watered: weather === 'rainy', grassCut: 0, cropHarvested: false, cropGrowth: Math.min(3, (state.farm.cropGrowth || 0) + (state.farm.watered || state.farm.weather === 'rainy' ? 1 : 0)) }, merchant: { present: random() < 0.35 },
     player: { ...state.player, energy: 2 }, report: lost ? `Sói còn lại (${wolves.length}) vượt quá 50% đàn cừu (${flock.length}). Trang trại bị chiếm.` : report,
     log: [...state.log, `Đêm ${state.day}: ${report}`].slice(-30) });
 }
@@ -57,24 +75,55 @@ export function advanceDawn(state, random = Math.random) {
 function reduce(state, action) {
   switch (action.type) {
     case 'NEW': return newGame();
+    case 'DIFFICULTY': return ['easy', 'normal', 'hard'].includes(action.value) && state.phase !== 'combat' ? { ...state, difficulty: action.value } : state;
+    case 'GRAZE': {
+      if (state.phase !== 'day' || !state.farm.pastureOpen || state.farm.weather === 'rainy') return state;
+      const flock = state.flock.map(s => ({ ...s, hunger: Math.min(100, (s.hunger ?? 100) + 4) }));
+      return { ...state, flock, farm: { ...state.farm, fed: flock.every(s => s.hunger >= 70) } };
+    }
+    case 'UPGRADE_FARM': {
+      if (state.phase !== 'day' || state.farm.upgradedDay === state.day) return state;
+      const kind = action.item, level = kind === 'fence' ? state.farm.fenceLevel : state.farm.expansion;
+      const cost = kind === 'roof' ? 8 : kind === 'fence' ? 4 + level * 4 : 6 + level * 6;
+      if (!['fence', 'expand', 'roof'].includes(kind) || state.gold < cost || kind === 'fence' && level >= 3 || kind === 'expand' && level >= 2 || kind === 'roof' && state.farm.roof) return state;
+      const farm = { ...state.farm, upgradedDay: state.day };
+      if (kind === 'fence') farm.fenceLevel++; else if (kind === 'expand') farm.expansion++; else farm.roof = true;
+      return { ...state, farm, gold: state.gold - cost, report: `Đã hoàn thành công việc xây dựng hôm nay: ${kind === 'fence' ? 'gia cố hàng rào' : kind === 'expand' ? 'mở rộng chuồng chung' : 'lắp mái che'}. Mai có thể nâng cấp tiếp.` };
+    }
+    case 'PASTURE':
+      if (state.phase !== 'day') return state;
+      return { ...state, farm: { ...state.farm, pastureOpen: !state.farm.pastureOpen }, report: state.farm.pastureOpen ? 'Đã gọi đàn cừu về chuồng.' : 'Đã mở cổng. Cừu ra bãi cỏ phía tây chuồng; chiều sẽ tự trở về.' };
+    case 'WATER':
+      if (state.phase !== 'day' || state.farm.watered) return state;
+      return { ...state, farm: { ...state.farm, watered: true }, report: 'Đã tưới luống rau. Rau phát triển sau mỗi ngày được tưới, đủ 3 ngày thì thu hoạch.' };
+    case 'CUT_GRASS':
+      if (state.phase !== 'day' || state.farm.weather === 'rainy' || state.farm.grassCut >= 2 || state.inventory.hay >= 12) return state;
+      return { ...state, farm: { ...state.farm, grassCut: state.farm.grassCut + 1 }, inventory: { ...state.inventory, hay: Math.min(12, state.inventory.hay + 2) }, report: 'Đã cắt và phơi cỏ: +2 bó vào kho (tối đa 12). Mỗi ngày nắng cắt được 2 lần.' };
+    case 'HARVEST':
+      if (state.phase !== 'day' || state.farm.cropGrowth < 3 || state.farm.cropHarvested) return state;
+      return { ...state, gold: state.gold + 4, farm: { ...state.farm, cropGrowth: 0, cropHarvested: true }, report: 'Thu hoạch rau bán được 4 xu. Đã gieo lại luống mới.' };
+    case 'SLEEP': {
+      if (!['day', 'night'].includes(state.phase)) return state;
+      const atNight = state.phase === 'day' ? reduce(state, { type: 'NIGHT' }) : state;
+      return atNight.phase === 'lose' ? atNight : advanceDawn(atNight, action.random || Math.random);
+    }
     case 'BUY': {
       const item = ITEMS[action.item];
-      if (state.phase !== 'day' || !item || state.gold < item.price || (item.shop === 'merchant' && !state.merchant.present)) return state;
-      if ((item.id === 'fence' && state.farm.divided) || (item.id === 'roof' && state.farm.roof) || (['sheep', 'lamb'].includes(item.id) && state.flock.length >= 16)) return state;
+      if (state.phase !== 'day' || !item || item.shop === 'construction' || state.gold < item.price) return state;
+      if ((item.id === 'clipper' && state.inventory.clipper) || (item.id === 'hay' && state.inventory.hay >= 12) || (['sheep', 'lamb'].includes(item.id) && state.flock.length >= state.farm.capacity)) return state;
       let next = { ...state, gold: state.gold - item.price, report: `Đã mua ${item.name}. ${item.description}` };
-      if (item.id === 'fence') {
-        next.farm = { ...state.farm, divided: true };
-        next.flock = state.flock.map((s, i) => ({ ...s, penId: i % 2 }));
-      } else if (item.id === 'roof') next.farm = { ...state.farm, roof: true, fed: true };
+      if (item.id === 'axe') { if (state.player.toolBonus >= .35) return state; next.player = { ...state.player, toolBonus: .35 }; }
+      else if (item.id === 'gun') { if (state.player.ownsGun) return state; next.player = { ...state.player, ownsGun: true, ammo: state.player.ammo + 3 }; }
       else if (['sheep', 'lamb'].includes(item.id)) { next.flock = [...state.flock, sheepEntity(`sheep-${state.nextId}`, item.id === 'lamb' ? 'baby' : 'adult', state.day, state.farm.divided ? state.flock.length % 2 : 0)]; next.nextId++; }
       else if (item.id === 'ammo') next.player = { ...state.player, ammo: state.player.ammo + 1 };
+      else if (item.id === 'clipper') { next.inventory = { ...state.inventory, clipper: 1 }; next.player = { ...state.player, clipperUses: 0 }; }
       else if (item.durability) next.player = { ...state.player, armor: { itemId: item.id, durability: item.durability, maxDurability: item.durability } };
       else next.inventory = { ...state.inventory, [item.id]: (state.inventory[item.id] || 0) + 1 };
       return next;
     }
     case 'FEED':
-      if (state.phase !== 'day' || state.farm.fed || state.inventory.hay < 1) return state;
-      return { ...state, inventory: { ...state.inventory, hay: state.inventory.hay - 1 }, farm: { ...state.farm, fed: true }, report: 'Đã cho cả đàn ăn cỏ khô. Cừu lớn sẽ tạo 1 xu/con sáng mai.' };
+      if (state.phase !== 'day' || state.flock.every(s => (s.hunger ?? 100) === 100) || state.inventory.hay < 1) return state;
+      return { ...state, flock: state.flock.map(s => ({ ...s, hunger: 100 })), inventory: { ...state.inventory, hay: state.inventory.hay - 1 }, farm: { ...state.farm, fed: true }, report: 'Đã cho cả đàn ăn cỏ khô. Độ no đạt 100%.' };
     case 'USE': {
       const id = action.item;
       if (!['day', 'night', 'combat'].includes(state.phase) || !state.inventory[id]) return state;
@@ -83,7 +132,8 @@ function reduce(state, action) {
       else if (id === 'medicine' && state.player.hp < 100) next.player.hp = Math.min(100, state.player.hp + 25);
       else if (id === 'strengthPotion' && state.player.damageBuff === 1) next.player.damageBuff = 1.5;
       else if (id === 'repairKit' && state.player.armor && state.player.armor.durability < state.player.armor.maxDurability) next.player.armor = { ...state.player.armor, durability: Math.min(state.player.armor.maxDurability, state.player.armor.durability + 15) };
-      else if (id === 'sunDoll' && state.phase === 'day' && !state.farm.nextSunny) next.farm = { ...state.farm, nextSunny: true };
+      else if (id === 'sunDoll' && state.phase === 'day' && !state.farm.nextSunny) next.farm = { ...state.farm, nextSunny: true, nextRain: false };
+      else if (id === 'rainDoll' && state.phase === 'day' && !state.farm.nextRain) next.farm = { ...state.farm, nextRain: true, nextSunny: false };
       else return state;
       return { ...next, inventory: { ...state.inventory, [id]: state.inventory[id] - 1 } };
     }
@@ -92,31 +142,39 @@ function reduce(state, action) {
       const residents = action.residents || makeResidents(state.day, state.flock, Math.random, { wolves: state.wolves, divided: state.farm.divided });
       const wolves = residents.filter(a => a.wolf);
       const lose = overrun(state.flock.length, wolves.length);
-      return { ...state, phase: lose ? 'lose' : 'night', residents, wolves, player: { ...state.player, energy: 2 }, dog: { ...state.dog, lastScan: null },
+      return { ...state, farm: { ...state.farm, pastureOpen: false, fed: state.flock.every(s => (s.hunger ?? 100) >= 70) }, phase: lose ? 'lose' : 'night', residents, wolves, player: { ...state.player, energy: 2 }, dog: { ...state.dog, lastScan: null },
         report: lose ? `Số sói (${wolves.length}) đã vượt quá 50% đàn cừu (${state.flock.length}).` : state.day % 7 === 0 ? 'Trăng tròn. Không còn dấu hiệu trên cơ thể; tiếng hú vọng từ chuồng. Dùng pin tông đơ để cạo lông.' : 'Đi đến gần cừu và nhấn E. Mỗi đêm có 2 năng lượng. Móng chân, mắt, miệng và thân có thể lộ dấu hiệu.' };
     }
     case 'DOG_SCAN': {
       if (state.phase !== 'night') return state;
       if (!dogAvailable(state)) return { ...state, report: 'Chó đang kiệt sức sau trận chiến, đêm nay không giúp tìm sói.' };
-      const danger = state.residents.some(a => a.wolf && !a.defeated && a.dogDetect && a.penId === action.penId);
-      return { ...state, dog: { ...state.dog, lastScan: { day: state.day, penId: action.penId, danger } }, report: danger ? `GÂU! Chó báo có mùi sói trong chuồng ${action.penId === 0 ? 'A' : 'B'}.` : 'Chó im lặng. Cẩn thận: chó không phát hiện được sói con.' };
+      const danger = state.residents.some(a => a.wolf && !a.defeated && a.dogDetect);
+      return { ...state, dog: { ...state.dog, exhaustedThroughNight: state.day, lastScan: { day: state.day, penId: action.penId, danger } }, report: danger ? 'Shiba báo có sói! Đã đi kiểm tra nên không hỗ trợ chiến đấu, sáng mai hồi phục.' : 'Shiba không tìm thấy mùi sói. Chó nghỉ đến sáng mai; sói con không có mùi.' };
     }
     case 'CHECK': {
       if (state.phase !== 'night' || state.player.energy < 1 || ![...TELLS, 'wool'].includes(action.part)) return state;
       const animal = state.residents.find(a => a.id === action.id && !a.defeated);
       if (!animal || animal.checked.includes(action.part)) return state;
       const shear = action.part === 'wool';
+      if (shear && !state.inventory.clipper) return { ...state, report: 'Tông đơ đã hỏng. Mua chiếc mới tại quầy hàng.' };
       if (shear && !state.inventory.battery) return { ...state, report: 'Hết pin tông đơ. Mua pin ban ngày: 2 xu cho một lần cạo.' };
       const found = animal.wolf && (shear || animal.tells.includes(action.part));
-      const inventory = shear ? { ...state.inventory, battery: state.inventory.battery - 1 } : state.inventory;
+      const uses = (state.player.clipperUses || 0) + Number(shear);
+      const broken = shear && uses >= 3 && (action.breakRoll ?? Math.random()) < Math.min(.9, (uses - 2) * .2);
+      const inventory = shear ? { ...state.inventory, battery: state.inventory.battery - 1, clipper: broken ? 0 : state.inventory.clipper } : state.inventory;
       const flock = shear ? state.flock.map(s => s.id === animal.id ? { ...s, isSheared: true } : s) : state.flock;
-      return { ...state, inventory, flock, player: { ...state.player, energy: state.player.energy - 1 }, activeId: found ? animal.id : null, phase: found ? 'reveal' : 'night',
+      return { ...state, inventory, flock, player: { ...state.player, clipperUses: uses, energy: state.player.energy - 1 }, activeId: found ? animal.id : null, phase: found ? 'reveal' : 'night',
         combat: found ? { wolfHp: animal.hp, wolfMaxHp: animal.hp, dogUsed: false, shieldAvailable: false, bleedTurns: 0 } : null,
-        report: found ? `${animal.name} xé lớp lông và hú lên!` : shear ? 'Dưới lớp lông là một con cừu thật.' : 'Bộ phận này chưa có dấu hiệu lạ. Hãy quan sát những chỗ khác.',
+        report: (found ? `${animal.name} xé lớp lông và hú lên!` : shear ? 'Dưới lớp lông là một con cừu thật.' : 'Bộ phận này chưa có dấu hiệu lạ.') + (broken ? ' Tông đơ vừa hỏng, cần mua mới.' : ''),
         residents: state.residents.map(a => a.id === animal.id ? { ...a, isSheared: shear || a.isSheared, checked: [...a.checked, action.part] } : a) };
     }
     case 'COMBAT': return state.phase === 'reveal' ? { ...state, phase: 'combat' } : state;
-    case 'SWITCH_WEAPON': return ['day', 'combat'].includes(state.phase) ? { ...state, player: { ...state.player, weapon: state.player.weapon === 'tool' ? 'gun' : 'tool' } } : state;
+    case 'PVE_BEGIN': {
+      if (state.phase !== 'combat' || state.combat.pveReady || state.combat.wolfHp <= 0) return state;
+      const factor = state.difficulty === 'easy' ? 1.7 : state.difficulty === 'hard' ? 3.1 : 2.6;
+      return { ...state, combat: { ...state.combat, pveReady: true, wolfHp: Math.round(state.combat.wolfHp * factor), wolfMaxHp: Math.round(state.combat.wolfMaxHp * factor) } };
+    }
+    case 'SWITCH_WEAPON': return ['day', 'combat'].includes(state.phase) && (state.player.ownsGun || state.player.weapon === 'gun') ? { ...state, player: { ...state.player, weapon: state.player.weapon === 'tool' ? 'gun' : 'tool' } } : state;
     case 'STRIKE': {
       if (state.phase !== 'combat' || state.combat.wolfHp <= 0) return state;
       const wolf = state.residents.find(a => a.id === state.activeId);
@@ -124,7 +182,16 @@ function reduce(state, action) {
       return { ...state, player: { ...state.player, ammo: state.player.ammo - Number(result.fired) }, combat: { ...state.combat, wolfHp: Math.max(0, state.combat.wolfHp - result.damage), lastStrike: result } };
     }
     case 'DOG':
-      return state.phase === 'combat' && dogAvailable(state) && !state.combat.dogUsed ? { ...state, combat: { ...state.combat, dogUsed: true, shieldAvailable: true }, dog: { ...state.dog, exhaustedThroughNight: state.day + 1 } } : state;
+      return state.phase === 'combat' && dogAvailable(state) && !state.combat.dogUsed ? { ...state, combat: { ...state.combat, dogUsed: true, shieldAvailable: true } } : state;
+    case 'PVE_DOG_HIT':
+      return state.phase === 'combat' && dogAvailable(state) && state.combat.dogUsed && state.combat.wolfHp > 1 ? { ...state, combat: { ...state.combat, wolfHp: Math.max(1, state.combat.wolfHp - 2) } } : state;
+    case 'SHEEP_HIT': {
+      if (state.phase !== 'combat' || state.difficulty === 'easy') return state;
+      const amount = state.difficulty === 'hard' ? 22 : 8;
+      const flock = state.flock.map(s => s.id === action.id ? { ...s, hp: Math.max(0, (s.hp ?? 100) - amount) } : s).filter(s => s.hp > 0);
+      const ids = new Set(flock.map(s => s.id));
+      return { ...state, flock, residents: state.residents.filter(s => s.wolf || ids.has(s.id)), phase: flock.length ? state.phase : 'lose' };
+    }
     case 'DAMAGE': {
       if (state.phase !== 'combat') return state;
       if (state.combat.shieldAvailable) return { ...state, combat: { ...state.combat, shieldAvailable: false }, report: 'Chó đỡ đòn thay bạn!' };
@@ -149,7 +216,7 @@ function reduce(state, action) {
 export function gameReducer(state, action) { return projection(reduce(state, action)); }
 
 export function migrateSave(saved) {
-  if (saved?.version === 3) return saved;
+  if (saved?.version === 3) { const inventory = { ...saved.inventory }; delete inventory.rainDoll; return { ...saved, inventory }; }
   if (saved?.version !== 2 || !Number.isFinite(saved.gold) || !Number.isInteger(saved.sheep) || saved.sheep < 0 || saved.sheep > 16 || !Number.isFinite(saved.hp)) return null;
   const base = newGame();
   return projection({ ...base, day: Math.max(1, saved.day || 1), gold: saved.gold, player: { ...base.player, hp: Math.max(0, Math.min(100, saved.hp)) },

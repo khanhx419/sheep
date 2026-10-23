@@ -1,9 +1,42 @@
 export const WORLD_LIMIT = 23;
 export const PLAYER_RADIUS = 0.32;
+export const DOG_HOME = { x: -9.6, z: 9.4, w: 1.9, d: 1.8 };
+export const DOG_SEAT = { x: DOG_HOME.x, z: DOG_HOME.z + 1.55 };
+export const OUTDOOR_WALLS = [
+  DOG_HOME,
+  { x: -4, z: 9.5, w: 4.5, d: .2 },
+  { x: -18, z: 17, w: .25, d: 5.1 }, { x: -12, z: 17, w: .25, d: 5.1 },
+  { x: -15, z: 19.5, w: 6, d: .25 },
+  { x: -16.95, z: 14.5, w: 2.1, d: .25 }, { x: -13.05, z: 14.5, w: 2.1, d: .25 },
+  { x: -16.5, z: 17.5, w: 1.25, d: 2.1 },
+  { x: -12, z: 7, w: 2.6, d: 2.6 },
+  { x: 13, z: 13, w: 6.3, d: 2.5 },
+  { x: 13, z: 16.5, w: 6.3, d: 2.5 },
+  { x: 10.5, z: 8, w: 2.9, d: 1 },
+  { x: 7.2, z: 14.8, w: 1, d: 1 },
+  { x: 4, z: 12.7, w: 2.9, d: 1.3 },
+  { x: -8.5, z: 18.6, w: 2, d: 1.3 },
+];
 export function gameKey(event) {
-  if (/^Key[A-Z]$/.test(event.code || '') || /^(Arrow|Shift|Escape)/.test(event.code || '')) return event.code;
+  if (/^Key[A-Z]$/.test(event.code || '') || /^(Arrow|Shift|Control)/.test(event.code || '') || ['Escape', 'Space', 'Tab', 'Backspace', 'Delete'].includes(event.code)) return event.code;
+  // IMEs can change key/which to Process/229 while code still identifies the
+  // physical key. Older/synthetic events may instead retain only the VK code.
+  const legacy = event.keyCode || event.which;
+  if (legacy >= 65 && legacy <= 90) return `Key${String.fromCharCode(legacy)}`;
+  const special = { 8: 'Backspace', 9: 'Tab', 16: 'ShiftLeft', 17: 'ControlLeft', 27: 'Escape', 32: 'Space', 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown', 46: 'Delete' };
+  if (special[legacy]) return special[legacy];
   if (/^[a-z]$/i.test(event.key || '')) return `Key${event.key.toUpperCase()}`;
-  return event.key === ' ' ? 'Space' : event.key;
+  return event.key === ' ' ? 'Space' : event.key || '';
+}
+export function imeInterruptsGame(event) {
+  const code = gameKey(event);
+  return ['Backspace', 'Delete'].includes(code) || (!/^Key[A-Z]$/.test(code) && (!code || event.isComposing || event.keyCode === 229 || event.which === 229 || /[^\u0000-\u007f]/.test(event.key || '') || ['Process', 'Dead', 'Unidentified'].includes(event.key)));
+}
+export function releaseGameKey(keys, event) {
+  if (imeInterruptsGame(event)) { keys.clear(); return; }
+  const code = gameKey(event);
+  keys.delete(code);
+  if (code.startsWith('Shift')) { keys.delete('ShiftLeft'); keys.delete('ShiftRight'); }
 }
 // Rectangles shared by visible architecture and movement collision.
 export const WALLS = [
@@ -79,7 +112,9 @@ export function interactionTarget(position, direction, candidates, obstacles = W
     const surfaceDistance = Math.max(0, planar - 0.75);
     const targetPitch = Math.atan2((candidate.height || 1) - position.y, Math.max(0.01, planar));
     const viewPitch = Math.atan2(direction.y, forwardLength);
-    if (surfaceDistance > 8 || dot < 0.9 || Math.abs(targetPitch - viewPitch) > 0.7 || !hasLineOfSight(position, candidate.position, obstacles)) continue;
+    const sightObstacles = candidate.interactionObstacle ? obstacles.filter(o => o !== candidate.interactionObstacle) : obstacles;
+    const smallTarget = candidate.animal.id === 'shiba';
+    if (surfaceDistance > 8 || dot < (smallTarget ? .97 : candidate.animal.merchant ? 0.8 : 0.9) || Math.abs(targetPitch - viewPitch) > (smallTarget ? .35 : .7) || !hasLineOfSight(position, candidate.position, sightObstacles)) continue;
     const score = (1 - dot) * 12 + surfaceDistance;
     if (score < bestScore) { bestScore = score; best = { animal: candidate.animal, distance: surfaceDistance }; }
   }
