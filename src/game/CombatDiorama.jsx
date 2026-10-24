@@ -12,7 +12,7 @@ export default function CombatDiorama({ type, turn, hp, reveal = false }) {
     try { renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); }
     catch { setFailed(true); return; }
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = T.PCFSoftShadowMap; renderer.toneMapping = T.ACESFilmicToneMapping;
+    renderer.shadowMap.type = T.PCFShadowMap; renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.domElement.setAttribute('aria-label', 'Sói 3D trong sân giao chiến ngoài chuồng'); host.current.appendChild(renderer.domElement);
     const scene = new T.Scene(); scene.fog = new T.FogExp2(0x263e47, 0.018);
     const camera = new T.PerspectiveCamera(44, 1, 0.1, 100);

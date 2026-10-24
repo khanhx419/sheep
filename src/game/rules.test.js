@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceDawn, gameReducer as reduce, makeResidents, newGame, readSave, SAVE_KEY, dogAvailable, overrun, farmAnimals, visibleHerdCount } from './rules.js';
+import { advanceDawn, gameReducer as reduce, makeResidents, newGame, readSave, SAVE_KEY, dogAvailable, overrun, farmAnimals, visibleHerdCount, nextWeather } from './rules.js';
+import { MEADOW_PATCHES } from './worldMath.js';
 import { WOLVES, evolveWolf, spawnWolves, absorbDamage, calculateStrike } from './catalog.js';
 import { PATTERN_REGISTRY } from '../canvas/patterns/AttackPatterns.js';
 import { BulletPool } from '../canvas/BulletPool.js';
@@ -19,17 +20,47 @@ test('herd presentation counts disguised wolves, hides names and keeps real econ
   assert.equal(visibleHerdCount({ ...s, phase: 'day' }), 7);
 });
 
-test('daytime chores produce bounded hay, persistent crops and close the pasture at night', () => {
+test('hay must be cut inside each outdoor plot, once per plot per day, with a twelve-bundle storage limit', () => {
   let s = reduce(newGame(), { type: 'PASTURE' }); assert.equal(s.farm.pastureOpen, true);
-  s = reduce(s, { type: 'CUT_GRASS' }); s = reduce(s, { type: 'CUT_GRASS' });
-  assert.equal(s.inventory.hay, 4); assert.equal(reduce(s, { type: 'CUT_GRASS' }).inventory.hay, 4);
-  s = reduce(s, { type: 'WATER' }); assert.equal(s.farm.watered, true);
+  const cut = patch => ({ type: 'CUT_GRASS', patch, position: { x: MEADOW_PATCHES[patch].x, z: MEADOW_PATCHES[patch].z } });
+  for (const action of [{ type: 'CUT_GRASS' }, { ...cut(0), position: { x: 0, z: 5 } }, { ...cut(0), patch: 1 }, { ...cut(0), patch: 99 }, { ...cut(0), patch: '0' }, { ...cut(0), position: { x: NaN, z: 14.5 } }]) {
+    assert.equal(reduce(s, action).inventory.hay, 0, 'menu and remote actions cannot harvest');
+  }
+  s = reduce(s, cut(0)); assert.equal(s.inventory.hay, 2); assert.equal(s.farm.grassCut, 1);
+  assert.equal(reduce(s, cut(0)).inventory.hay, 2, 'the same patch cannot be cut twice');
+  s = reduce(s, cut(1)); assert.equal(s.inventory.hay, 4); assert.equal(s.farm.grassCut, 2);
+  assert.equal(reduce(s, cut(1)).inventory.hay, 4);
   s = reduce(s, { type: 'NIGHT', residents: [] }); assert.equal(s.farm.pastureOpen, false);
-  assert.equal(reduce(s, { type: 'CUT_GRASS' }).inventory.hay, 4);
-  s = advanceDawn(s, () => .9); assert.equal(s.farm.grassCut, 0); assert.equal(s.farm.cropGrowth, 1);
-  for (let i = 0; i < 2; i++) { s = reduce(s, { type: 'WATER' }); s = advanceDawn({ ...s, residents: [] }, () => .9); }
-  const gold = s.gold; s = reduce(s, { type: 'HARVEST' }); assert.equal(s.gold, gold + 4);
-  assert.equal(reduce(s, { type: 'HARVEST' }).gold, s.gold);
+  s = advanceDawn(s, () => .9); assert.equal(s.farm.grassCut, 0); assert.deepEqual(s.farm.cutPatches, []);
+  s = reduce(s, cut(0)); assert.equal(s.inventory.hay, 6, 'plots regrow every dawn');
+  const almostFull = { ...newGame(), inventory: { ...newGame().inventory, hay: 11 } };
+  const full = reduce(almostFull, cut(0)); assert.equal(full.inventory.hay, 12);
+  assert.equal(reduce(full, cut(1)).inventory.hay, 12); assert.deepEqual(reduce(full, cut(1)).farm.cutPatches, [0], 'full storage does not waste uncut grass');
+  for (const state of [{ ...newGame(), phase: 'night' }, { ...newGame(), farm: { ...newGame().farm, weather: 'rainy' } }]) {
+    assert.equal(reduce(state, cut(0)).inventory.hay, 0); assert.deepEqual(reduce(state, cut(0)).farm.cutPatches, []);
+  }
+});
+
+test('vegetable chores are removed and old crop saves do not keep their state', () => {
+  const s = newGame();
+  assert.deepEqual(reduce(s, { type: 'WATER' }), s); assert.deepEqual(reduce(s, { type: 'HARVEST' }), s);
+  const legacy = { ...s, farm: { ...s.farm, watered: true, cropGrowth: 3, cropHarvested: true } };
+  const loaded = readSave({ getItem: () => JSON.stringify(legacy) });
+  for (const key of ['watered', 'cropGrowth', 'cropHarvested']) assert.equal(key in loaded.farm, false);
+});
+
+test('rain has an independent 25 percent chance every day, including the day after rain', () => {
+  for (const previous of ['sunny', 'rainy']) {
+    const farm = { ...newGame().farm, weather: previous };
+    assert.equal(nextWeather(farm, () => .249999), 'rainy');
+    assert.equal(nextWeather(farm, () => .25), 'sunny');
+    const rainCount = Array.from({ length: 400 }, (_, i) => nextWeather(farm, () => (i + .5) / 400)).filter(w => w === 'rainy').length;
+    assert.equal(rainCount, 100);
+    const dawn = advanceDawn({ ...newGame(), farm, residents: [] }, () => .1);
+    assert.equal(dawn.farm.weather, 'rainy');
+    assert.equal(advanceDawn({ ...dawn, residents: [] }, () => .1).farm.weather, 'rainy', 'rain yesterday does not reduce or increase today chance');
+  }
+  assert.equal(nextWeather({ nextSunny: true, weather: 'rainy' }, () => 0), 'sunny');
 });
 
 test('sun doll overrides weather and removed rain dolls cannot be used', () => {

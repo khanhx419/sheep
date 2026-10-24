@@ -51,16 +51,36 @@ export function landscape(scene, { cube, ball, cylinder }) {
   for (const side of [-1, 1]) { const roof = cube(scene, 0x647b70, -12 + side * 0.7, 2.8, 7, 1.65, 0.14, 2.3); roof.rotation.z = side * -0.4; }
   const spindle = cylinder(scene, 0x9b7d52, 0.1, 2.7, -12, 1.85, 7); spindle.rotation.z = Math.PI / 2;
   cylinder(scene, 0xc2a56a, 0.025, 1.1, -12, 1.25, 7);
-  // Raised vegetable beds on the opposite side of the courtyard.
-  for (const z of [13, 16.5]) {
-    cube(scene, 0x574330, 13, 0.12, z, 6, 0.24, 2.3);
-    for (const side of [-1, 1]) cube(scene, 0x96714e, 13, 0.28, z + side * 1.15, 6.3, 0.34, 0.12);
-    for (let i = 0; i < 7; i++) for (const side of [-1, 1]) {
-      const x = 10.6 + i * 0.8;
-      ball(scene, 0x647b70, x, 0.43, z + side * 0.5, 0.29, 0.2, 0.3);
-      ball(scene, 0x799057, x - 0.11, 0.49, z + side * 0.5, 0.22, 0.16, 0.22);
-      if (i % 3 === 0) ball(scene, 0xc99c51, x, 0.59, z + side * 0.5, 0.07);
+  // A curved footpath skirts the hay bales and joins the meadow's west gate.
+  // The centre of the route stays clear of both the shop and the water trough.
+  const meadowPath = [[1.5, 9.5], [8.4, 9.5], [8.65, 10.7], [9.4, 12.1], [10.7, 12.1]];
+  for (let segment = 1; segment < meadowPath.length; segment++) {
+    const [ax, az] = meadowPath[segment - 1], [bx, bz] = meadowPath[segment];
+    const steps = Math.ceil(Math.hypot(bx - ax, bz - az) / .65);
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+      const stone = ball(scene, i % 2 ? 0xa5aa94 : 0x8c9585, x, .025, z, .5, .055, .42);
+      stone.rotation.y = i * .61;
     }
+  }
+  // Round orchard silhouettes soften the conifer forest behind the farm fence.
+  // All trunks are beyond the playable boundary, so the visible walking area
+  // does not acquire invisible obstacles or tree trunks without collisions.
+  for (const [x, z, scale] of [[-25, 13, 1], [-24.8, 22, 1.1], [24.8, 5, 1.05], [25.5, 19, 1.15], [17, 26, 1], [-8, 27, .95]]) {
+    cylinder(scene, 0x67543e, .24 * scale, 3.8 * scale, x, 1.9 * scale, z, .17 * scale);
+    for (const side of [-1, 1]) {
+      const branch = cylinder(scene, 0x67543e, .11 * scale, 1.8 * scale, x + side * .45 * scale, 3 * scale, z, .07 * scale);
+      branch.rotation.z = side * -.65;
+      ball(scene, side > 0 ? 0x799057 : 0x647b70, x + side * 1.05 * scale, 4.05 * scale, z + side * .35 * scale, 1.65 * scale, 1.55 * scale, 1.6 * scale);
+    }
+    ball(scene, 0x617a59, x, 5.15 * scale, z, 1.65 * scale, 1.4 * scale, 1.65 * scale);
+  }
+  // Daisies line the field's far edge without growing across harvest patches.
+  for (let i = 0; i < 24; i++) {
+    const x = 19.35 + Math.sin(i * 2.1) * .27, z = 10.7 + i * .33, height = .33 + i % 3 * .07;
+    cylinder(scene, 0x799057, .018, height, x, height / 2, z);
+    ball(scene, i % 4 ? 0xe7d6b7 : 0xc99c51, x, height + .02, z, .09, .035, .09);
+    ball(scene, 0xc99c51, x, height + .045, z, .028, .025, .028);
   }
   // Flower islands and bushes frame the walking space instead of blocking it.
   for (let i = 0; i < 64; i++) {

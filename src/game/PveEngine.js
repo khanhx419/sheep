@@ -14,6 +14,7 @@ export class PveEngine {
     this.attackAt = -10; this.attackReadyAt = 0; this.dodgeAt = -10; this.blockAt = -10; this.counterUntil = 0; this.invulnerableUntil = 0; this.dogAt = -10; this.dogAttackSeen = -10;
     this.pressure = combatPressure(day); this.projectileSpeed = 5.5;
     this.previous = ''; this.label = 'Sói đang tìm sơ hở'; this.hitIds = new Set();
+    this.stageDuration = .9; this.castCount = 0; this.dashMotion = null;
   }
   press(code) {
     if (code === 'Space' && this.time - this.dodgeAt > 1 && this.stamina >= 24) {
@@ -48,6 +49,7 @@ export class PveEngine {
     return null;
   }
   choose() {
+    this.castCount++;
     const pools = { pup: ['dash', 'fan', 'dash', 'burst'], alpha: ['slam', 'rings', 'dash'], white: ['burst', 'rings', 'fan'], lean: ['dash', 'fan', 'slam'], rabid: ['burst', 'fan', 'dash', 'slam'] };
     const pool = (pools[this.type] || ['dash', 'slam', 'fan', 'burst']).filter(p => p !== this.previous);
     this.pattern = pool[Math.min(pool.length - 1, Math.floor(this.random() * pool.length))]; this.previous = this.pattern;
@@ -56,11 +58,15 @@ export class PveEngine {
     this.hitIds.clear(); this.stage = 'windup';
     const speciesTempo = this.type === 'pup' ? 1.12 : this.type === 'alpha' ? .88 : 1;
     this.timer = Math.max(this.pattern === 'rings' ? 1.05 : .85, (1.05 + this.random() * .25 - this.pressure * .2) / (this.rules.speed * speciesTempo));
+    this.stageDuration = this.timer;
     this.label = { dash: 'Lao tới', slam: 'Vồ chụp', fan: 'Vuốt gió', burst: 'Bẫy trăng', rings: 'Địa chấn' }[this.pattern];
     const p = { ...this.player };
     if (this.pattern === 'dash') {
-      const dx = p.x - this.wolf.x, dz = p.z - this.wolf.z, length = Math.hypot(dx, dz) || 1;
-      this.effects = [{ x: this.wolf.x, z: this.wolf.z, dx: dx / length, dz: dz / length, length: 7, width: .8, line: true }];
+      let dx = p.x - this.wolf.x, dz = p.z - this.wolf.z, length = Math.hypot(dx, dz);
+      if (length < .05) { dx = p.x > 0 ? -1 : 1; dz = 0; length = 1; }
+      const travel = Math.min(4.4, Math.max(0, length - 1.2)), end = arenaPoint(this.wolf.x + dx / length * travel, this.wolf.z + dz / length * travel);
+      this.dashMotion = { from: { ...this.wolf }, to: end };
+      this.effects = [{ x: this.wolf.x, z: this.wolf.z, dx: dx / length, dz: dz / length, length: Math.min(7, length + .6), width: .8, line: true }];
     } else if (this.pattern === 'fan') {
       const angle = Math.atan2(p.x - this.wolf.x, p.z - this.wolf.z);
       const count = this.pressure >= .7 ? 5 : this.pressure >= .35 ? 4 : 3;
@@ -96,8 +102,13 @@ export class PveEngine {
     this.player.x = Math.max(-5, Math.min(5, this.player.x + x / length * speed * dt));
     this.player.z = Math.max(-3.8, Math.min(4.3, this.player.z + z / length * speed * dt));
     if (this.stage === 'wait' && this.timer <= 0) this.choose();
-    else if (this.stage === 'windup' && this.timer <= 0) { this.stage = 'strike'; this.timer = this.pattern === 'fan' ? 1.4 : .38; }
+    else if (this.stage === 'windup' && this.timer <= 0) { this.stage = 'strike'; this.timer = this.pattern === 'fan' ? 1.4 : .38; this.stageDuration = this.timer; }
     else if (this.stage === 'strike') {
+      if (this.pattern === 'dash' && this.dashMotion) {
+        const p = Math.min(1, Math.max(0, 1 - this.timer / this.stageDuration)), eased = p * p * (3 - 2 * p);
+        const { from, to } = this.dashMotion;
+        this.wolf = arenaPoint(from.x + (to.x - from.x) * eased, from.z + (to.z - from.z) * eased);
+      }
       for (const e of this.effects) {
         if (e.projectile) { e.x += e.dx * dt * this.projectileSpeed; e.z += e.dz * dt * this.projectileSpeed; }
         if (this.overlaps(this.player, e) && !this.hitIds.has('player') && this.time >= this.invulnerableUntil) {
@@ -109,8 +120,8 @@ export class PveEngine {
         }
         for (const sheep of this.sheep) if (!this.hitIds.has(sheep.id) && this.overlaps(sheep, e)) { this.hitIds.add(sheep.id); this.onSheepHit(sheep.id); }
       }
-      if (this.timer <= 0) { this.stage = 'recover'; this.timer = .9 - this.pressure * .15; this.counterUntil = Math.max(this.counterUntil, this.time + this.timer); this.effects = []; }
-    } else if (this.stage === 'recover' && this.timer <= 0) { this.stage = 'wait'; this.timer = Math.max(.4, (.75 + this.random() * .6 - this.pressure * .35) / this.rules.speed); this.onCycle(); }
+      if (this.timer <= 0) { this.stage = 'recover'; this.timer = .9 - this.pressure * .15; this.stageDuration = this.timer; this.counterUntil = Math.max(this.counterUntil, this.time + this.timer); this.effects = []; this.dashMotion = null; }
+    } else if (this.stage === 'recover' && this.timer <= 0) { this.stage = 'wait'; this.timer = Math.max(.4, (.75 + this.random() * .6 - this.pressure * .35) / this.rules.speed); this.stageDuration = this.timer; this.onCycle(); }
     if (this.dog && this.stage === 'recover' && this.time >= DOG_ASSIST_INTERVAL && this.time - this.dogAt >= DOG_ASSIST_INTERVAL && this.attackAt > this.dogAttackSeen && this.time - this.attackAt < 4 && distance(this.player, this.wolf) < 3.4) {
       this.dogAt = this.time; this.dogAttackSeen = this.attackAt; this.onDogHit();
     }

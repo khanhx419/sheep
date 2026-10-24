@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { createModelKit } from './worldModels.js';
 import { createAtmosphere } from './worldAtmosphere.js';
-import { canStand, movePlayer, movementVector, interactionTarget, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, DIVIDER_WALLS, WALLS, OUTDOOR_WALLS, DOG_SEAT } from './worldMath.js';
+import { canStand, movePlayer, movementVector, interactionTarget, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, DIVIDER_WALLS, WALLS, OUTDOOR_WALLS, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch } from './worldMath.js';
 import { Icon } from './ui.jsx';
 import { sound, unlockAudio } from './audio.js';
 import './firstPerson.css';
@@ -14,6 +14,8 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
   const [locked, setLocked] = useState(false), [torch, setTorch] = useState(true);
   const [target, setTarget] = useState(null), [engaged, setEngaged] = useState(false);
   const [outsideView, setOutsideView] = useState(false);
+  const [harvesting, setHarvesting] = useState(null), [fieldNotice, setFieldNotice] = useState('');
+  useEffect(() => { if (!fieldNotice) return; const timeout = setTimeout(() => setFieldNotice(''), 3000); return () => clearTimeout(timeout); }, [fieldNotice]);
   const [hint, setHint] = useState('Chuột khóa khi chơi · Ctrl phải mở/khóa chuột · Esc cài đặt.');
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     try { renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); }
     catch { setError('Trình duyệt chưa bật WebGL 2. Hãy mở game bằng Chrome hoặc Edge có tăng tốc đồ họa.'); return; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFShadowMap;
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
     renderer.domElement.setAttribute('aria-label', 'Cảnh trại 3D góc nhìn thứ nhất');
     renderer.domElement.tabIndex = 0;
@@ -34,6 +36,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     const shiba = kit.shiba({ sitting: true }); shiba.position.set(DOG_SEAT.x, 0, DOG_SEAT.z); scene.add(shiba);
     const atmosphere = createAtmosphere(scene);
     const heldTorch = kit.flashlight(camera);
+    const heldSickle = kit.sickle(camera);
     const sky = new T.HemisphereLight(0xc7dce4, 0x8a7761, 1.7); scene.add(sky);
     const rim = new T.DirectionalLight(0xb8d8ed, 0.6); rim.position.set(8, 8, -12); scene.add(rim);
     const sun = new T.DirectionalLight(0xffdfae, 2.8); sun.position.set(-8, 17, 11); sun.castShadow = true;
@@ -50,7 +53,8 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     engine.current = world;
     const walls = () => [...WALLS, ...OUTDOOR_WALLS, { x: 0, z: -5.425 - (props.current.farm.expansion || 0) * 2.2375, w: 16, d: .16 }];
     const npcWalls = () => props.current.merchantPresent && !props.current.night ? [{ x: -4, z: 12.5, w: 0.8, d: 0.8 }] : [];
-    function clearInput() { keys.clear(); world.dragging = false; world.touchForward = 0; world.touchStrafe = 0; }
+    function cancelHarvest() { if (world.harvest) { world.harvest = null; setHarvesting(null); } }
+    function clearInput() { keys.clear(); world.dragging = false; world.touchForward = 0; world.touchStrafe = 0; cancelHarvest(); }
     let lockPending = false, lockCancelled = false, disposed = false, manuallyUnlocked = false;
     function release() { lockCancelled = true; if (document.pointerLockElement === renderer.domElement) document.exitPointerLock(); clearInput(); }
     function focus() { renderer.domElement.focus({ preventScroll: true }); world.active = true; setEngaged(true); unlockAudio(); }
@@ -90,22 +94,36 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       if (props.current.night) candidates.push({ position: shiba.position, height: .6, animal: { id: 'shiba', name: props.current.farm.dogReady ? 'Shiba · Kiểm tra chuồng (nghỉ hết đêm)' : props.current.farm.dogScan?.danger ? 'Shiba báo có sói · Nghỉ đến sáng' : 'Shiba không tìm thấy mùi sói · Nghỉ đến sáng', action: props.current.farm.dogReady ? 'DOG_SCAN' : 'DOG_STATUS' } });
       candidates.push({ position: { x: -8.5, z: 17.3 }, height: 1, animal: { id: 'store', name: 'Kho cỏ · Xem dự trữ', activity: 'inventory' } });
       if (!props.current.night) {
-        candidates.push({ position: { x: 9.4, z: 11.4 }, height: .6, animal: { id: 'garden', name: props.current.farm.cropGrowth >= 3 ? 'Thu hoạch rau' : 'Tưới luống rau', action: props.current.farm.cropGrowth >= 3 ? 'HARVEST' : 'WATER' } });
-        candidates.push({ position: { x: -11, z: 1 }, height: .6, animal: { id: 'grass', name: 'Bãi cỏ · Cắt cỏ dự trữ', action: 'CUT_GRASS' } });
+        MEADOW_PATCHES.forEach((patch, i) => {
+          const cut = props.current.farm.cutPatches?.includes(i), rainy = props.current.farm.weather === 'rainy';
+          const name = cut ? 'Cỏ đã cắt · Mọc lại sáng mai' : rainy ? 'Cỏ đang ướt · Không thể phơi' : inMeadowPatch(camera.position, i) ? 'Cắt cỏ · +2 bó vào kho' : 'Đồng cỏ · Đi vào luống để cắt';
+          const ahead = { x: camera.position.x + direction.x * 1.5, z: camera.position.z + direction.z * 1.5 };
+          const position = inMeadowPatch(camera.position, i) && inMeadowPatch(ahead, i) ? ahead : patch;
+          candidates.push({ position, height: .7, animal: { id: `grass-${i}`, name, action: 'CUT_GRASS', patch: i } });
+        });
         candidates.push({ position: { x: 0, z: 8.4 }, height: 1, animal: { id: 'gate', name: props.current.farm.pastureOpen ? 'Gọi cừu về chuồng' : 'Mở cửa cho cừu ra đồng', action: 'PASTURE' } });
       }
       return interactionTarget(camera.position, direction, candidates, walls());
     }
-    function requestAction(type) {
+    function requestAction(type, details = {}) {
+      if (type === 'CUT_GRASS') {
+        if (world.harvest) return;
+        const current = props.current, patch = details.patch;
+        if (current.night || current.farm.weather === 'rainy' || current.farm.cutPatches?.includes(patch)) return;
+        if (!inMeadowPatch(camera.position, patch)) { setFieldNotice('Bước hẳn vào luống cỏ để cắt.'); return; }
+        if (current.farm.storedHay >= 12) { setFieldNotice('Kho đã đầy 12 bó cỏ.'); return; }
+        focus(); keys.clear(); world.harvest = { patch, position: { x: camera.position.x, z: camera.position.z }, startedAt: performance.now(), progress: 0 };
+        setHarvesting({ patch, progress: 0 }); setFieldNotice(''); return;
+      }
       if (type === 'DOG_SCAN' && props.current.night && props.current.farm.dogReady) sound(props.current.animals.some(a => a.wolf && !a.defeated && a.dogDetect) ? 'bark' : 'click');
-      props.current.onAction?.(type);
+      props.current.onAction?.(type, details);
     }
     function interact() {
       if (props.current.paused || props.current.selectedId) return;
       const aim = findTarget();
       if (!aim) { setHint('Hướng tâm ngắm vào một con cừu rồi tiến đến gần.'); return; }
       if (aim.distance > 3.3) { setHint('Còn xa quá. Đi lại gần hơn để kiểm tra.'); return; }
-      if (aim.animal.action) { requestAction(aim.animal.action); return; }
+      if (aim.animal.action) { requestAction(aim.animal.action, { patch: aim.animal.patch }); return; }
       release();
       if (aim.animal.activity) props.current.onMenu?.(aim.animal.activity);
       else if (aim.animal.shop) { if (props.current.night) setHint('Quầy đóng cửa vào ban đêm.'); else props.current.onMenu?.('shop'); }
@@ -131,6 +149,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       if (code === 'KeyE') { if (!event.repeat) { event.preventDefault(); interact(); } return; }
       if (!world.active && document.activeElement !== renderer.domElement) return;
       world.active = true;
+      if (world.harvest && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown'].includes(code)) cancelHarvest();
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft'].includes(code)) event.preventDefault();
       keys.add(code);
       if (event.repeat) return;
@@ -159,7 +178,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     document.addEventListener('keydown', keyDown, true); document.addEventListener('keyup', keyUp, true);
     document.addEventListener('compositionstart', clearInput); document.addEventListener('compositionend', clearInput);
     document.addEventListener('pointerlockchange', lockChange); window.addEventListener('blur', loseFocus); document.addEventListener('visibilitychange', visibility);
-    world.focus = focus; world.interact = interact; world.release = release;
+    world.focus = focus; world.interact = interact; world.release = release; world.cancelHarvest = cancelHarvest;
     world.lock = lockMouse;
     if (controlsRef) controlsRef.current = world;
     const resize = () => {
@@ -174,8 +193,17 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       const dt = Math.min((now - last) / 1000, 0.045); last = now;
       if (document.hidden) return;
       const current = props.current;
+      if (current.paused || current.suspended || current.night || current.selectedId || current.farm.weather === 'rainy') cancelHarvest();
       if (current.suspended) { if (!world.wasPaused) release(); world.wasPaused = true; return; }
       atmosphere.update(now / 1000, current.night, current.farm.weather === 'rainy');
+      if (world.harvest) {
+        const harvest = world.harvest; harvest.progress = Math.min(1, (now - harvest.startedAt) / 2800);
+        if (now - (world.harvestUiAt || 0) > 90) { world.harvestUiAt = now; setHarvesting({ patch: harvest.patch, progress: harvest.progress }); }
+        if (harvest.progress >= 1) { current.onAction?.('CUT_GRASS', { patch: harvest.patch, position: harvest.position }); world.harvest = null; setHarvesting(null); setFieldNotice('Đã gom cỏ về kho · +2 bó'); sound('click'); }
+      }
+      meta.meadow.update(now / 1000, current.farm.cutPatches || [], world.harvest);
+      heldSickle.visible = !!world.harvest;
+      if (world.harvest) { const swing = Math.sin(world.harvest.progress * Math.PI * 8); heldSickle.rotation.set(-.15, -.25 + swing * .4, -.25 + swing * .55); heldSickle.position.y = -.36 + Math.abs(swing) * .07; }
       const dogHead = shiba.userData.head;
       const watching = camera.position.distanceTo(shiba.position) < 6;
       const headTurn = watching ? T.MathUtils.clamp(Math.atan2(camera.position.x - shiba.position.x, camera.position.z - shiba.position.z), -.7, .7) : 0;
@@ -291,7 +319,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
         object.userData.ears.forEach((ear, i) => { ear.rotation.x = Math.sin(now * 0.0017 + object.userData.index + i * 2) * 0.07; });
         object.userData.ring.visible = selected === object;
       }
-      heldTorch.visible = !selected && !current.paused;
+      heldTorch.visible = !selected && !current.paused && !world.harvest;
       heldTorch.position.y = -0.28 + Math.sin(now * 0.0015) * 0.008;
       camera.getWorldDirection(direction);
       torchLight.position.copy(camera.position).addScaledVector(direction, 0.25);
@@ -322,6 +350,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
   function touchMove(event, forward, strafe) {
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
     engine.current?.focus(); if (!engine.current) return;
+    engine.current.cancelHarvest?.();
     engine.current.touchForward = forward; engine.current.touchStrafe = strafe;
   }
   function stopTouch() { if (engine.current) { engine.current.touchForward = 0; engine.current.touchStrafe = 0; } }
@@ -331,10 +360,12 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     {error ? <div className="fp-error"><h3>Không thể mở cảnh 3D</h3><p>{error}</p></div> : <>
       <div className="fp-world-label"><i className="live-dot" />TRẠI SƯƠNG <span>{night ? 'CA GÁC BAN ĐÊM' : 'DẠO QUANH TRẠI'} · GÓC NHÌN THỨ NHẤT</span></div>
       {!paused && !selectedId && <><div className={`fp-crosshair ${target?.near ? 'has-target' : ''}`} aria-hidden="true"><i /><i /></div>
-        {target?.near && <div className="fp-target" role="status"><strong>{target.name}</strong><span>E · Tương tác</span></div>}
+        {target?.near && !harvesting && <div className="fp-target" role="status"><strong>{target.name}</strong><span>E · Tương tác</span></div>}
         <div className="fp-toolbar"><button className="fp-tool" onClick={() => { if (engine.current) { engine.current.torchOn = !engine.current.torchOn; setTorch(engine.current.torchOn); } }}><Icon name="lamp" size={16} />{torch ? 'Đèn bật' : 'Đèn tắt'}<kbd>F</kbd></button><button className="fp-tool" onClick={() => engine.current?.lock()}>{locked ? 'Chuột khóa · Ctrl phải để mở' : 'Khóa chuột · Ctrl phải'}</button></div>
         <div className="fp-bottom"><span><kbd>W A S D</kbd> Đi lại <i>·</i> Rê chuột / ← → nhìn <i>·</i> <kbd>Ctrl phải</kbd> Mở chuột <i>·</i> <kbd>C</kbd> Cúi <i>·</i> <kbd>Shift</kbd> Đi nhanh</span><span>{hint}</span></div>
-        {target?.near && <button className="fp-interact button primary" onClick={() => engine.current?.interact()}>{target?.activity || target?.merchant ? target.name : night ? 'Kiểm tra' : 'Xem cừu'}<kbd>E</kbd></button>}
+        {target?.near && !harvesting && <button className="fp-interact button primary" onClick={() => engine.current?.interact()}>{target?.activity || target?.merchant ? target.name : night ? 'Kiểm tra' : 'Xem cừu'}<kbd>E</kbd></button>}
+        {harvesting && <div className="field-harvest" role="status"><strong>Đang cắt và gom cỏ…</strong><div><i style={{ width: `${harvesting.progress * 100}%` }} /></div><small>Di chuyển để dừng</small></div>}
+        {fieldNotice && <div className="field-notice" role="status">{fieldNotice}</div>}
         <div className="fp-touch-pad" aria-label="Điều khiển di chuyển"><button aria-label="Đi tới" onPointerDown={e => touchMove(e, 1, 0)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>↑</button><div><button aria-label="Đi sang trái" onPointerDown={e => touchMove(e, 0, -1)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>←</button><button aria-label="Đi lùi" onPointerDown={e => touchMove(e, -1, 0)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>↓</button><button aria-label="Đi sang phải" onPointerDown={e => touchMove(e, 0, 1)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>→</button></div></div>
       </>}
     </>}{children}

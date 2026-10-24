@@ -127,3 +127,30 @@ test('wolf damage scales with nights and species while difficulty remains effect
   assert.ok(hit({ type: 'alpha' }) > hit({})); assert.ok(hit({ type: 'pup' }) < hit({}));
   assert.ok(hit({ difficulty: 'easy' }) < hit({})); assert.ok(hit({ difficulty: 'hard' }) > hit({}));
 });
+
+test('wolf dashes remain continuous and inside the arena, including a coincident starting point', () => {
+  for (const [from, target] of [
+    [{ x: -5, z: -3.8 }, { x: 5, z: 4.3 }],
+    [{ x: 5, z: 4.3 }, { x: -5, z: -3.8 }],
+    [{ x: 0, z: -1 }, { x: 0, z: 2.5 }],
+    [{ x: 4.9, z: 4.2 }, { x: 5, z: 4.3 }],
+    [{ x: 0, z: 0 }, { x: 0, z: 0 }],
+    [{ x: 5, z: 4.3 }, { x: 5, z: 4.3 }],
+  ]) {
+    const e = new PveEngine({ random: () => 0 }); e.wolf = { ...from }; e.player = { ...target }; e.choose();
+    assert.equal(e.pattern, 'dash'); assert.ok(e.safeSpot(), 'even an overlapping wolf leaves a reachable escape');
+    const effect = e.effects[0]; assert.ok(Math.abs(Math.hypot(effect.dx, effect.dz) - 1) < 1e-9, 'dash direction stays normalized');
+    const end = { ...e.dashMotion.to }; let prior = { ...e.wolf }, frames = 0;
+    while (e.stage === 'windup' && frames++ < 200) { e.update(.01); assert.deepEqual(e.wolf, from, 'wolf stays planted while telegraphing'); }
+    assert.equal(e.stage, 'strike');
+    while (e.stage === 'strike' && frames++ < 300) {
+      e.update(.01);
+      assert.ok([e.wolf.x, e.wolf.z].every(Number.isFinite));
+      assert.ok(e.wolf.x >= -5 && e.wolf.x <= 5 && e.wolf.z >= -3.8 && e.wolf.z <= 4.3);
+      assert.ok(Math.hypot(e.wolf.x - prior.x, e.wolf.z - prior.z) < .24, 'dash cannot teleport between frames');
+      prior = { ...e.wolf };
+    }
+    assert.equal(e.stage, 'recover'); assert.deepEqual(e.wolf, end, 'recovery uses the physical dash endpoint');
+    e.update(.01); assert.deepEqual(e.wolf, end, 'recovery does not snap back to the windup position');
+  }
+});

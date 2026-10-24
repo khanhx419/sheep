@@ -2,16 +2,21 @@ export const WORLD_LIMIT = 23;
 export const PLAYER_RADIUS = 0.32;
 export const DOG_HOME = { x: -9.6, z: 9.4, w: 1.9, d: 1.8 };
 export const DOG_SEAT = { x: DOG_HOME.x, z: DOG_HOME.z + 1.55 };
+export const MEADOW_PATCHES = [{ x: 12.2, z: 14.5, w: 3.4, d: 6.4 }, { x: 16.2, z: 14.5, w: 3.4, d: 6.4 }];
+export const MEADOW_FENCES = [{ x: 18.4, z: 14.5, w: .12, d: 8.6 }, { x: 14.2, z: 10.2, w: 8.4, d: .12 }, { x: 14.2, z: 18.8, w: 8.4, d: .12 }, { x: 10, z: 10.5, w: .12, d: .6 }, { x: 10, z: 16.1, w: .12, d: 5.4 }];
+export function inMeadowPatch(position, index) {
+  const patch = Number.isInteger(index) ? MEADOW_PATCHES[index] : null;
+  return !!patch && Number.isFinite(position?.x) && Number.isFinite(position?.z) && Math.abs(position.x - patch.x) <= patch.w / 2 && Math.abs(position.z - patch.z) <= patch.d / 2;
+}
 export const OUTDOOR_WALLS = [
   DOG_HOME,
+  ...MEADOW_FENCES,
   { x: -4, z: 9.5, w: 4.5, d: .2 },
   { x: -18, z: 17, w: .25, d: 5.1 }, { x: -12, z: 17, w: .25, d: 5.1 },
   { x: -15, z: 19.5, w: 6, d: .25 },
   { x: -16.95, z: 14.5, w: 2.1, d: .25 }, { x: -13.05, z: 14.5, w: 2.1, d: .25 },
   { x: -16.5, z: 17.5, w: 1.25, d: 2.1 },
   { x: -12, z: 7, w: 2.6, d: 2.6 },
-  { x: 13, z: 13, w: 6.3, d: 2.5 },
-  { x: 13, z: 16.5, w: 6.3, d: 2.5 },
   { x: 10.5, z: 8, w: 2.9, d: 1 },
   { x: 7.2, z: 14.8, w: 1, d: 1 },
   { x: 4, z: 12.7, w: 2.9, d: 1.3 },

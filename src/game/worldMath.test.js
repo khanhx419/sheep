@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canStand, movePlayer, movementVector, interactionTarget, hasLineOfSight, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, WALLS, DIVIDER_WALLS, OUTDOOR_WALLS, DOG_HOME, DOG_SEAT } from './worldMath.js';
+import { canStand, movePlayer, movementVector, interactionTarget, hasLineOfSight, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, WALLS, DIVIDER_WALLS, OUTDOOR_WALLS, DOG_HOME, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch } from './worldMath.js';
+
+test('both hay plots are reachable on foot through the meadow entrance and surrounding fences block shortcuts', () => {
+  const obstacles = [...WALLS, ...OUTDOOR_WALLS];
+  let position = { x: 8.5, z: 12 };
+  position = movePlayer(position, 3.7, 0, obstacles);
+  assert.ok(Math.abs(position.x - MEADOW_PATCHES[0].x) < .001, 'the open entrance leads into the meadow');
+  position = movePlayer(position, 0, 2.5, obstacles); assert.equal(inMeadowPatch(position, 0), true);
+  position = movePlayer(position, 4, 0, obstacles); assert.equal(inMeadowPatch(position, 1), true);
+  assert.equal(inMeadowPatch({ x: 0, z: 5 }, 0), false, 'barn cannot count as a cutting location');
+  assert.equal(inMeadowPatch(MEADOW_PATCHES[0], 1), false); assert.equal(inMeadowPatch(MEADOW_PATCHES[0], '0'), false);
+  const blocked = movePlayer({ x: 9, z: 16 }, 4, 0, obstacles);
+  assert.ok(blocked.x < 9.7, 'fence beside the entrance is solid');
+});
 
 test('UniKey changed key text or Process/229 keyup cannot leave movement held', () => {
   const keys = new Set(['KeyW', 'KeyD']);

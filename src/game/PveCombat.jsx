@@ -6,6 +6,7 @@ import { createAtmosphere } from './worldAtmosphere.js';
 import { dogAvailable } from './rules.js';
 import { sound } from './audio.js';
 import { gameKey, imeInterruptsGame, releaseGameKey } from './worldMath.js';
+import { animateWolf, fitCombatCamera, faceCombatActor } from './combatAnimation.js';
 
 export default function PveCombat({ state, dispatch }) {
   const host = useRef(null), engine = useRef(null), latest = useRef(state); latest.current = state;
@@ -17,7 +18,7 @@ export default function PveCombat({ state, dispatch }) {
     dispatch({ type: 'PVE_BEGIN' });
     let renderer;
     try { renderer = new T.WebGLRenderer({ antialias: true }); } catch { setError(true); return; }
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; renderer.toneMapping = T.ACESFilmicToneMapping;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFShadowMap; renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.domElement.setAttribute('aria-label', 'Đấu trường PvE 3D trong chuồng'); host.current.appendChild(renderer.domElement);
     const scene = new T.Scene(), kit = createModelKit(); kit.environment(scene); scene.userData.barnShell.visible = false; scene.userData.roofCover.visible = false;
     const set = kit.supplements(scene); set.fenceStages.forEach((f, i) => { f.visible = i === (latest.current.farm.fenceLevel || 0); });
@@ -25,13 +26,15 @@ export default function PveCombat({ state, dispatch }) {
     set.gates.forEach(g => { g.rotation.y = g.userData.side * -1.45; });
     const atmosphere = createAtmosphere(scene); scene.fog = new T.FogExp2(0x273f49, .012);
     const camera = new T.OrthographicCamera(-9, 9, 6.8, -6.8, .1, 130); camera.position.set(8, 13, 15); camera.lookAt(0, .4, 0);
-    scene.add(new T.HemisphereLight(0xb5cedb, 0x746548, 2));
-    const light = new T.DirectionalLight(0xffdfa1, 2.6); light.position.set(-5, 12, 7); light.castShadow = true; light.shadow.mapSize.set(1024, 1024); Object.assign(light.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); light.shadow.bias = -.0004; scene.add(light);
+    scene.add(new T.HemisphereLight(0xb5cedb, 0x55654f, 1.5));
+    const light = new T.DirectionalLight(0xc7dcff, 2.4); light.position.set(-5, 12, 7); light.castShadow = true; light.shadow.mapSize.set(1024, 1024); Object.assign(light.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); light.shadow.bias = -.0004; scene.add(light);
+    const warm = new T.DirectionalLight(0xffd09b, .9); warm.position.set(3, 4, 9); scene.add(warm);
     const player = kit.farmer(), enemy = kit.wolf(wolf.type), dog = kit.shiba(); scene.add(player, enemy, dog);
     const sheep = latest.current.flock.map((s, i) => ({ id: s.id, x: (i % 2 ? 1 : -1) * (4.5 - Math.floor(i / 2) % 3 * 1.02), z: -3.4 + Math.floor(i / 6) * 1.05 }));
     const flock = sheep.map((position, i) => { const mesh = kit.sheep(latest.current.flock[i], i); mesh.scale.multiplyScalar(.55); mesh.position.set(position.x, 0, position.z); scene.add(mesh); return mesh; });
+    let wolfHitAt = -10, playerHitAt = -10, previousHp = latest.current.combatHp;
     const controller = new PveEngine({ type: wolf.type, day: latest.current.day, difficulty: latest.current.difficulty, sheep, dog: dogAvailable(latest.current),
-      onHit: (amount, bleed) => { if (amount) { dispatch({ type: 'DAMAGE', amount, bleed }); sound('hit'); } },
+      onHit: (amount, bleed) => { playerHitAt = controller.time; if (amount) { dispatch({ type: 'DAMAGE', amount, bleed }); sound('hit'); } },
       onAttack: counter => {
         const s = latest.current; if (s.combatHp <= 0 || s.player.weapon === 'gun' && !s.player.ammo) return;
         dispatch({ type: 'STRIKE', position: counter ? .5 : s.player.weapon === 'gun' ? .75 : .65, roll: Math.random() }); sound('hit');
@@ -46,6 +49,12 @@ export default function PveCombat({ state, dispatch }) {
     const hitMat = new T.MeshBasicMaterial({ color: 0xef6651, transparent: true, opacity: .8, side: T.DoubleSide, depthWrite: false });
     const shieldMat = new T.MeshBasicMaterial({ color: 0x97d6c1, transparent: true, opacity: .25, wireframe: true });
     const shield = new T.Mesh(new T.SphereGeometry(.7, 12, 8), shieldMat); scene.add(shield);
+    const slashGeometry = new T.RingGeometry(.7, .76, 24, 1, -.7, 2), slashMaterial = new T.MeshBasicMaterial({ color: 0xffd69b, transparent: true, opacity: .8, side: T.DoubleSide, depthWrite: false });
+    const slash = new T.Mesh(slashGeometry, slashMaterial), wolfSlash = new T.Group(); scene.add(slash, wolfSlash);
+    const wolfSlashMaterial = slashMaterial.clone(); wolfSlashMaterial.color.set(0xf1a287);
+    for (let i = 0; i < 3; i++) { const claw = new T.Mesh(slashGeometry, wolfSlashMaterial); claw.position.y = i * .15; wolfSlash.add(claw); }
+    const sparkGeometry = new T.OctahedronGeometry(.055), sparkMaterial = new T.MeshBasicMaterial({ color: 0xffe8b0 });
+    const sparks = new T.InstancedMesh(sparkGeometry, sparkMaterial, 12), sparkTransform = new T.Object3D(); sparks.frustumCulled = false; scene.add(sparks);
     const marks = Array.from({ length: 5 }, () => { const ring = new T.Mesh(ringGeometry, warnMat), line = new T.Mesh(lineGeometry, warnMat), bullet = new T.Mesh(bulletGeometry, hitMat); ring.rotation.x = line.rotation.x = -Math.PI / 2; scene.add(ring, line, bullet); return { ring, line, bullet }; });
     const down = e => {
       if (e.ctrlKey || e.metaKey || e.altKey || imeInterruptsGame(e)) { controller.keys.clear(); return; }
@@ -57,7 +66,7 @@ export default function PveCombat({ state, dispatch }) {
     const up = e => releaseGameKey(controller.keys, e), blur = () => controller.keys.clear();
     document.addEventListener('keydown', down, true); document.addEventListener('keyup', up, true); window.addEventListener('blur', blur);
     document.addEventListener('compositionstart', blur); document.addEventListener('compositionend', blur); document.addEventListener('visibilitychange', blur);
-    const resize = () => { const { width, height } = host.current.getBoundingClientRect(); if (!height) return; renderer.setSize(width, height, false); camera.left = -6.8 * width / height; camera.right = 6.8 * width / height; camera.updateProjectionMatrix(); };
+    const resize = () => { const { width, height } = host.current.getBoundingClientRect(); if (!height) return; renderer.setSize(width, height, false); fitCombatCamera(camera, width, height); };
     const observer = new ResizeObserver(resize); observer.observe(host.current); resize();
     let frame, last = performance.now(), uiAt = 0, wonAt = 0;
     const draw = now => {
@@ -65,19 +74,28 @@ export default function PveCombat({ state, dispatch }) {
       const s = latest.current; controller.gun = s.player.weapon === 'gun';
       if (s.combatHp > 0 && !pause.current) controller.update(dt); else if (s.combatHp <= 0 && !wonAt) wonAt = now;
       if (wonAt && now - wonAt > 1000) { wonAt = Infinity; dispatch({ type: 'WON_FIGHT' }); }
-      player.position.set(controller.player.x, Math.sin(now * .004) * .012, controller.player.z); player.lookAt(controller.wolf.x, player.position.y, controller.wolf.z);
+      if (s.combatHp < previousHp) wolfHitAt = controller.time; previousHp = s.combatHp;
+      const moving = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].some(key => controller.keys.has(key)), dodgeAge = controller.time - controller.dodgeAt;
+      player.position.set(controller.player.x, dodgeAge < .38 ? Math.sin(dodgeAge / .38 * Math.PI) * .16 : moving ? Math.abs(Math.sin(controller.time * 10)) * .035 : .01, controller.player.z);
+      faceCombatActor(player, controller.wolf, dodgeAge < .38 ? Math.sin(dodgeAge / .38 * Math.PI) * .25 : Math.max(0, 1 - (controller.time - playerHitAt) / .25) * Math.sin(controller.time * 35) * .1);
+      player.userData.legs.forEach((leg, i) => { leg.rotation.x = moving ? Math.sin(controller.time * 11 + i * Math.PI) * .5 : 0; });
+      player.userData.guardArm.rotation.x = controller.blocking ? -1.3 : moving ? Math.sin(controller.time * 11) * .15 : 0;
       const swingAge = controller.time - controller.attackAt;
       player.userData.arm.rotation.x = swingAge < .5 ? -1.3 * Math.sin(Math.PI * Math.min(1, swingAge / .5)) : controller.blocking ? -.9 : 0;
-      enemy.position.set(controller.wolf.x, 0, controller.wolf.z); enemy.lookAt(controller.player.x, 0, controller.player.z);
-      enemy.userData.head.rotation.x = controller.stage === 'windup' ? -.2 : Math.sin(now * .003) * .03;
-      enemy.rotation.z = controller.time - controller.attackAt < .16 ? Math.sin(now * .04) * .08 : 0;
-      if (s.combatHp <= 0) enemy.rotation.z = -.9;
-      if (controller.stage === 'strike' && controller.pattern === 'dash') enemy.position.addScaledVector(new T.Vector3(controller.effects[0].dx, 0, controller.effects[0].dz), Math.min(4, (.38 - controller.timer) * 12));
+      const deathElapsed = s.combatHp <= 0 ? Number.isFinite(wonAt) ? Math.min(1.2, (now - wonAt) / 1000) : 1.2 : 0;
+      const pose = animateWolf(enemy, deathElapsed ? { ...controller, time: controller.time + deathElapsed } : controller, { hitAt: wolfHitAt, deadAt: s.combatHp <= 0 ? controller.time : null });
+      slash.visible = swingAge < .5; slash.position.copy(player.position).add(new T.Vector3(Math.sin(player.rotation.y) * .6, .9, Math.cos(player.rotation.y) * .6)); slash.rotation.set(-.4, player.rotation.y, -1.5 + swingAge * 7); slashMaterial.opacity = Math.max(0, 1 - swingAge / .5) * .8;
+      wolfSlash.visible = pose.strike && ['fan', 'slam', 'dash'].includes(controller.pattern); wolfSlash.position.copy(enemy.position).add(new T.Vector3(0, 1, 0)); wolfSlash.rotation.set(-.3, enemy.rotation.y, -.9 + pose.progress * 2.8);
+      const hitAge = controller.time - wolfHitAt; sparks.visible = hitAge < .4;
+      if (sparks.visible) { for (let i = 0; i < 12; i++) { const angle = i * 2.399; sparkTransform.position.set(enemy.position.x + Math.sin(angle) * hitAge * 2.8, 1 + hitAge * 2 - hitAge * hitAge * 5 + i % 3 * .1, enemy.position.z + Math.cos(angle) * hitAge * 2.8); sparkTransform.scale.setScalar(1 - hitAge / .4); sparkTransform.updateMatrix(); sparks.setMatrixAt(i, sparkTransform.matrix); } sparks.instanceMatrix.needsUpdate = true; }
       const dogStrike = controller.time - controller.dogAt < .7;
       const target = controller.dog && dogStrike ? { x: enemy.position.x + .5, z: enemy.position.z } : { x: player.position.x + 1, z: player.position.z - .8 };
       dog.visible = controller.dog; dog.position.lerp(new T.Vector3(target.x, .02 + (dogStrike ? Math.abs(Math.sin(now * .008)) * .035 : 0), target.z), 1 - Math.exp(-dt * 4)); dog.lookAt(enemy.position.x, dog.position.y, enemy.position.z);
+      dog.userData.tail.rotation.z = Math.sin(controller.time * (dogStrike ? 12 : 3)) * .2;
+      dog.userData.head.rotation.x = dogStrike ? Math.sin(controller.time * 12) * .14 : .02;
+      dog.userData.legs.forEach((leg, i) => { leg.rotation.x = dogStrike ? Math.sin(controller.time * 14 + i * Math.PI) * .5 : 0; });
       shield.visible = controller.blocking; shield.position.copy(player.position); shield.position.y += .7;
-      flock.forEach((mesh, i) => { const animal = s.flock.find(a => a.id === sheep[i].id); mesh.visible = !!animal; mesh.userData.head.rotation.x = Math.sin(now * .008 + i) * .04;
+      flock.forEach((mesh, i) => { const animal = s.flock.find(a => a.id === sheep[i].id); mesh.visible = !!animal; mesh.userData.head.rotation.x = Math.sin(controller.time * 8 + i) * .04; mesh.position.y = pose.strike ? Math.abs(Math.sin(controller.time * 18 + i)) * .035 : 0; mesh.userData.ears.forEach((ear, side) => { ear.rotation.z = (side ? 1 : -1) * (pose.strike ? .6 : .28); });
         mesh.userData.hungerBar.visible = !!animal && s.difficulty !== 'easy' && animal.hp < 100; mesh.userData.hungerBar.quaternion.copy(mesh.quaternion.clone().invert().multiply(camera.quaternion));
         const hp = (animal?.hp ?? 100) / 100; mesh.userData.hungerFill.scale.x = hp; mesh.userData.hungerFill.position.x = (hp - 1) / 2;
       });
@@ -90,7 +108,7 @@ export default function PveCombat({ state, dispatch }) {
       atmosphere.update(now / 1000, true); renderer.render(scene, camera);
       if (now - uiAt > 90) { uiAt = now; setView({ label: s.combatHp <= 0 ? 'Sói đã gục' : controller.label, stage: controller.stage, stamina: Math.round(controller.stamina), counter: controller.time < controller.counterUntil, attackReady: controller.time >= controller.attackReadyAt }); }
     }; frame = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('keydown', down, true); document.removeEventListener('keyup', up, true); document.removeEventListener('compositionstart', blur); document.removeEventListener('compositionend', blur); document.removeEventListener('visibilitychange', blur); window.removeEventListener('blur', blur); atmosphere.dispose(); kit.dispose(); for (const g of [ringGeometry, lineGeometry, bulletGeometry, shield.geometry]) g.dispose(); warnMat.dispose(); hitMat.dispose(); shieldMat.dispose(); light.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); engine.current = null; };
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('keydown', down, true); document.removeEventListener('keyup', up, true); document.removeEventListener('compositionstart', blur); document.removeEventListener('compositionend', blur); document.removeEventListener('visibilitychange', blur); window.removeEventListener('blur', blur); atmosphere.dispose(); kit.dispose(); for (const g of [ringGeometry, lineGeometry, bulletGeometry, shield.geometry]) g.dispose(); slashGeometry.dispose(); slashMaterial.dispose(); wolfSlashMaterial.dispose(); sparkGeometry.dispose(); sparkMaterial.dispose(); warnMat.dispose(); hitMat.dispose(); shieldMat.dispose(); light.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); engine.current = null; };
   }, [state.activeId, state.difficulty, dispatch]);
   function press(code) { if (!pause.current) engine.current?.press(code); }
   return <div className="pve-combat"><div className="pve-scene" ref={host} />{error && <div className="pve-error">Không thể dựng cảnh chiến đấu WebGL. Hãy bật tăng tốc đồ họa và tải lại game.</div>}

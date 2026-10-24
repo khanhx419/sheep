@@ -1,8 +1,11 @@
 import { ITEMS, WOLVES, spawnWolves, evolveWolf, absorbDamage, calculateStrike } from './catalog.js';
+import { inMeadowPatch } from './worldMath.js';
 export const SAVE_KEY = 'under-the-wool-v3';
 export const SHEEP_NAMES = ['Bông', 'Mây', 'Sữa', 'Bắp', 'Mochi', 'Mè', 'Kem', 'Đậu'];
 export const TELLS = ['eyes', 'paws', 'teeth', 'body', 'tail'];
 export const TARGET_GOLD = 200;
+export const RAIN_CHANCE = .25;
+export function nextWeather(farm, random = Math.random) { return farm.nextSunny ? 'sunny' : random() < RAIN_CHANCE ? 'rainy' : 'sunny'; }
 
 // Presentation must count disguises and never expose an internal species/name.
 // Map before filtering so a defeated animal doesn't renumber the remaining herd.
@@ -14,13 +17,16 @@ export function visibleHerdCount(state) { return farmAnimals(state).length; }
 
 function sheepEntity(id, age, day, penId = 0) { return { id, age, bornDay: day, penId, isSheared: false, hunger: 100, hp: 100 }; }
 function projection(state) {
-  state = { ...state, farm: { pastureOpen: false, watered: false, grassCut: 0, cropGrowth: 0, cropHarvested: false, nextRain: false, ...state.farm, storedHay: state.inventory.hay }, inventory: { clipper: 1, rainDoll: 0, ...state.inventory } };
+  state = { ...state, farm: { pastureOpen: false, grassCut: 0, nextRain: false, ...state.farm, storedHay: state.inventory.hay }, inventory: { clipper: 1, rainDoll: 0, ...state.inventory } };
   state.farm = { fenceLevel: state.farm.divided ? 1 : 0, expansion: Math.max(0, Math.ceil((state.flock.length - 8) / 4)), upgradedDay: 0, ...state.farm, divided: false };
   state.farm.capacity = Math.min(16, Math.max(state.flock.length, 8 + state.farm.expansion * 4));
   state.player = { toolBonus: 0, ownsGun: state.player.weapon === 'gun', ...state.player };
   for (const key of ['flock', 'wolves', 'residents']) state[key] = state[key].map(a => a.penId ? { ...a, penId: 0 } : a);
   state.difficulty = ['easy', 'normal', 'hard'].includes(state.difficulty) ? state.difficulty : 'normal';
   state.player = { clipperUses: 0, ...state.player };
+  state.farm.cutPatches = [...new Set((state.farm.cutPatches || Array.from({ length: Math.min(2, state.farm.grassCut || 0) }, (_, i) => i)).filter(i => i === 0 || i === 1))];
+  state.farm.grassCut = state.farm.cutPatches.length;
+  for (const key of ['watered', 'cropGrowth', 'cropHarvested']) delete state.farm[key];
   state.flock = state.flock.map(a => ({ hunger: 100, hp: 100, ...a }));
   delete state.inventory.rainDoll; state.farm.nextRain = false;
   return { ...state, hp: state.player.hp, sheep: state.flock.length, fence: Number(state.farm.divided), combatHp: state.combat?.wolfHp ?? null,
@@ -62,12 +68,12 @@ export function advanceDawn(state, random = Math.random) {
   const income = state.farm.fed ? flock.filter(s => s.age === 'adult').length : 0;
   const day = state.day + 1;
   flock = flock.map(s => ({ ...s, age: s.age === 'baby' && day - s.bornDay >= 2 ? 'adult' : s.age, isSheared: false }));
-  const weather = state.farm.nextSunny ? 'sunny' : random() >= 0.25 ? 'sunny' : 'rainy';
+  const weather = nextWeather(state.farm, random);
   flock = flock.map(s => ({ ...s, hunger: Math.max(0, (s.hunger ?? 100) - 65) }));
   const report = `${eaten ? `Sói ăn mất ${eaten} cừu.` : 'Đàn cừu qua đêm an toàn.'} Thu ${income} xu (${state.farm.fed ? '1 xu/cừu lớn' : 'đàn đói trong ngày mưa'}). ${day % 7 === 0 ? 'Đêm tới trăng tròn: chỉ còn tiếng hú, phải cạo lông.' : ''}`;
   const lost = overrun(flock.length, wolves.length);
   return projection({ ...state, day, phase: lost ? 'lose' : 'day', gold: state.gold + income, flock, wolves, residents: [], activeId: null, combat: null,
-    farm: { ...state.farm, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, watered: weather === 'rainy', grassCut: 0, cropHarvested: false, cropGrowth: Math.min(3, (state.farm.cropGrowth || 0) + (state.farm.watered || state.farm.weather === 'rainy' ? 1 : 0)) }, merchant: { present: random() < 0.35 },
+    farm: { ...state.farm, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, grassCut: 0, cutPatches: [] }, merchant: { present: random() < 0.35 },
     player: { ...state.player, energy: 2 }, report: lost ? `Sói còn lại (${wolves.length}) vượt quá 50% đàn cừu (${flock.length}). Trang trại bị chiếm.` : report,
     log: [...state.log, `Đêm ${state.day}: ${report}`].slice(-30) });
 }
@@ -93,15 +99,9 @@ function reduce(state, action) {
     case 'PASTURE':
       if (state.phase !== 'day') return state;
       return { ...state, farm: { ...state.farm, pastureOpen: !state.farm.pastureOpen }, report: state.farm.pastureOpen ? 'Đã gọi đàn cừu về chuồng.' : 'Đã mở cổng. Cừu ra bãi cỏ phía tây chuồng; chiều sẽ tự trở về.' };
-    case 'WATER':
-      if (state.phase !== 'day' || state.farm.watered) return state;
-      return { ...state, farm: { ...state.farm, watered: true }, report: 'Đã tưới luống rau. Rau phát triển sau mỗi ngày được tưới, đủ 3 ngày thì thu hoạch.' };
     case 'CUT_GRASS':
-      if (state.phase !== 'day' || state.farm.weather === 'rainy' || state.farm.grassCut >= 2 || state.inventory.hay >= 12) return state;
-      return { ...state, farm: { ...state.farm, grassCut: state.farm.grassCut + 1 }, inventory: { ...state.inventory, hay: Math.min(12, state.inventory.hay + 2) }, report: 'Đã cắt và phơi cỏ: +2 bó vào kho (tối đa 12). Mỗi ngày nắng cắt được 2 lần.' };
-    case 'HARVEST':
-      if (state.phase !== 'day' || state.farm.cropGrowth < 3 || state.farm.cropHarvested) return state;
-      return { ...state, gold: state.gold + 4, farm: { ...state.farm, cropGrowth: 0, cropHarvested: true }, report: 'Thu hoạch rau bán được 4 xu. Đã gieo lại luống mới.' };
+      if (state.phase !== 'day' || state.farm.weather === 'rainy' || state.farm.grassCut >= 2 || state.inventory.hay >= 12 || state.farm.cutPatches.includes(action.patch) || !inMeadowPatch(action.position, action.patch)) return state;
+      return { ...state, farm: { ...state.farm, cutPatches: [...state.farm.cutPatches, action.patch] }, inventory: { ...state.inventory, hay: Math.min(12, state.inventory.hay + 2) }, report: 'Đã cắt và phơi một luống cỏ: +2 bó vào kho. Cỏ mọc lại vào sáng mai.' };
     case 'SLEEP': {
       if (!['day', 'night'].includes(state.phase)) return state;
       const atNight = state.phase === 'day' ? reduce(state, { type: 'NIGHT' }) : state;

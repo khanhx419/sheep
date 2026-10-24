@@ -3,6 +3,23 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import { createModelKit } from './worldModels.js';
 import { createAtmosphere } from './worldAtmosphere.js';
+import { createMeadow } from './worldMeadow.js';
+import { animateWolf, fitCombatCamera, faceCombatActor } from './combatAnimation.js';
+
+test('farmer remains upright when facing behind himself during hit and dodge reactions', () => {
+  const kit = createModelKit(), actor = kit.farmer();
+  actor.position.set(0, .01, 0);
+  for (let i = 0; i < 32; i++) for (const lean of [-.25, 0, .25]) {
+    const angle = i / 32 * Math.PI * 2;
+    actor.lookAt(Math.sin(angle), .01, Math.cos(angle));
+    faceCombatActor(actor, { x: Math.sin(angle), z: Math.cos(angle) }, lean);
+    const bounds = new T.Box3().setFromObject(actor);
+    assert.ok(bounds.max.y > 1.5 && bounds.min.y > -.15, 'body must stay above the arena floor');
+    const up = new T.Vector3(0, 1, 0).applyQuaternion(actor.quaternion);
+    assert.ok(up.y > .95, 'turning must not invert the actor');
+  }
+  kit.dispose();
+});
 
 function collect(object, predicate) {
   const result = []; object.traverse(child => { if (predicate(child)) result.push(child); }); return result;
@@ -119,4 +136,55 @@ test('day and night atmosphere works without browser globals and releases its sc
     assert.ok([...object.geometry.attributes.position.array].every(Number.isFinite));
   }
   atmosphere.dispose(); assert.equal(scene.children.length, 0);
+});
+
+test('all wolf poses keep finite transforms, positive scales and visible geometry throughout every skill', () => {
+  const kit = createModelKit();
+  for (const type of ['normal', 'rabid', 'pup', 'lean', 'alpha', 'white']) {
+    const model = kit.wolf(type);
+    for (const pattern of ['dash', 'slam', 'fan', 'burst', 'rings']) for (const stage of ['wait', 'windup', 'strike', 'recover']) for (const progress of [0, .2, .5, .8, 1]) {
+      const e = { time: 10 + progress, timer: 1 - progress, stageDuration: 1, castCount: 3, stage, pattern, player: { x: 5, z: 4.3 }, wolf: { x: -5, z: -3.8 }, effects: [{ dx: 1, dz: 0 }] };
+      animateWolf(model, e, { hitAt: e.time - .08 }); model.updateMatrixWorld(true);
+      model.traverse(part => {
+        assert.ok([...part.position, ...part.quaternion, ...part.scale].every(Number.isFinite), `${type}/${pattern}/${stage} transforms`);
+        assert.ok(part.scale.x > 0 && part.scale.y > 0 && part.scale.z > 0, `${type}/${pattern}/${stage} cannot collapse`);
+      });
+      const bounds = new T.Box3().setFromObject(model), size = bounds.getSize(new T.Vector3());
+      assert.ok([size.x, size.y, size.z].every(n => Number.isFinite(n) && n > .5), 'wolf never disappears into a zero-size pose');
+      assert.ok(Math.hypot(model.position.x - e.wolf.x, model.position.z - e.wolf.z) < .01, 'animation stays on its actual collider');
+      animateWolf(model, e, { deadAt: e.time - .4 });
+    }
+  }
+  kit.dispose();
+});
+
+test('combat camera retains arena corners and full wolf height in narrow, square and wide views', () => {
+  const camera = new T.OrthographicCamera(-9, 9, 6.8, -6.8, .1, 130);
+  camera.position.set(8, 13, 15); camera.lookAt(0, .4, 0);
+  for (const [width, height] of [[360, 800], [800, 800], [1440, 900], [2560, 720]]) {
+    fitCombatCamera(camera, width, height);
+    for (const x of [-6.1, 6.1]) for (const z of [-4.9, 5.4]) for (const y of [0, 4.4]) {
+      const projected = new T.Vector3(x, y, z).project(camera);
+      assert.ok([projected.x, projected.y, projected.z].every(Number.isFinite));
+      assert.ok(Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1 && Math.abs(projected.z) < 1, `${width}x${height}: arena corner ${x}/${y}/${z} remains on screen`);
+    }
+  }
+});
+
+test('meadow grows, visibly cuts each plot independently, regrows next day and releases resources', () => {
+  const scene = new T.Scene(), meadow = createMeadow(scene);
+  assert.equal(scene.children.length, 1); assert.equal(meadow.patches.length, 2);
+  const geometries = new Set(), materials = new Set();
+  meadow.root.traverse(o => { if (o.geometry) geometries.add(o.geometry); if (o.material) materials.add(o.material); });
+  let geometryDisposals = 0, materialDisposals = 0;
+  geometries.forEach(g => g.addEventListener('dispose', () => geometryDisposals++));
+  materials.forEach(m => m.addEventListener('dispose', () => materialDisposals++));
+  meadow.update(0); assert.deepEqual(meadow.patches.map(p => p.scale.y), [1, 1]);
+  meadow.update(1, [], { patch: 0, progress: .5, position: { x: 12.2, z: 14.5 } });
+  assert.ok(meadow.patches[0].scale.y < 1 && meadow.patches[0].scale.y > .12); assert.equal(meadow.patches[1].scale.y, 1);
+  meadow.update(2, [0]); assert.ok(meadow.patches[0].scale.y <= .15); assert.equal(meadow.patches[1].scale.y, 1);
+  meadow.update(3, [0, 1]); assert.ok(meadow.patches.every(p => p.scale.y <= .15));
+  meadow.update(4, []); assert.deepEqual(meadow.patches.map(p => p.scale.y), [1, 1], 'cleared daily cut state regrows both plots');
+  meadow.root.traverse(o => { if (o.isMesh) assert.ok([...o.geometry.attributes.position.array].every(Number.isFinite)); });
+  meadow.dispose(); assert.equal(scene.children.length, 0); assert.equal(geometryDisposals, geometries.size); assert.equal(materialDisposals, materials.size);
 });
