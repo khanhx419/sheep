@@ -18,6 +18,8 @@ Shiba chỉ hỗ trợ khi người chơi vừa đánh và sói đang hồi chi�
 
 Game 3D hoạt hình góc nhìn thứ nhất bằng React, Three.js và Canvas. Mua trại kiếm tiền cưới vợ, điều tra sói ngụy trang và sống sót đến khi đủ **200 xu để bán trang trại**. Không còn giới hạn thắng sau 5 đêm.
 
+Cảnh đồng quê bao quanh 360° gồm mặt đất nối liền, ruộng ngũ cốc theo luống, đường quê uốn vào rừng, vườn cây, bìa rừng gần bao quanh phía sau và hai bên, rừng xa cùng hai lớp đồi ở chân trời; cảnh bao quanh không có nhà hàng xóm hay cột điện. Khu chơi vẫn giới hạn bởi hàng rào trại; cảnh xa đổi màu theo ngày đêm và thời tiết. Cừu có hoạt ảnh thở, ăn cỏ, nhai, nhìn quanh, chớp mắt, giật tai và đổi chân; khi soi, chuyển động giảm để giữ dấu hiệu dễ quan sát. Shiba ngồi cạnh chuồng, quay đầu, vẫy đuôi, ngáp và có biểu cảm báo sói. Mái bạt, tán cây và ngũ cốc lay theo gió; người bán chào khi đến gần, đèn lồng đung đưa, khói bếp trôi, chim và bướm xuất hiện ban ngày, đom đóm ban đêm. `dev/scenery.html` là màn xem hình ảnh độc lập, không truy cập bản lưu.
+
 Đồ họa: cừu có lông mềm, chớp mắt và cử động tai; chuồng có sàn ván, cửa sổ, xà gỗ và đèn lồng. Sân ngoài có đường đá, nhà nhỏ, giếng, bãi cỏ thu hoạch riêng và quầy hàng 3D. Ban ngày ra khỏi cửa chuồng, đến quầy bên phải và nhấn E để mua đồ; Tab vẫn mở quản lý trại. Các vật phẩm có hình minh họa riêng trong cửa hàng và túi đồ.
 
 Khi phát hiện sói, trận đấu chuyển sang đấu trường 3D với sói đúng loài và các vùng báo chiêu. Người chơi di chuyển, né, đỡ và phản đòn trực tiếp. Cảnh chuồng tạm ngừng render khi đang ở trận đấu để tránh chạy hai cảnh 3D cùng lúc.

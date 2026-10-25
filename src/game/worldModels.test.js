@@ -4,6 +4,9 @@ import * as T from 'three';
 import { createModelKit } from './worldModels.js';
 import { createAtmosphere } from './worldAtmosphere.js';
 import { createMeadow } from './worldMeadow.js';
+import { createCountryside, countrysideHeight } from './worldCountryside.js';
+import { createFarmAmbience } from './worldAmbience.js';
+import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
 import { animateWolf, fitCombatCamera, faceCombatActor } from './combatAnimation.js';
 
 test('farmer remains upright when facing behind himself during hit and dodge reactions', () => {
@@ -77,7 +80,10 @@ test('environment can be constructed and disposed without browser globals or dow
   const kit = createModelKit(), scene = new T.Scene();
   kit.environment(scene);
   const setPieces = collect(scene, o => o.isMesh);
-  assert.ok(setPieces.length > 10 && setPieces.length < 70, 'scenery with separately upgradeable roof and barn should stay batched');
+  const scenery = new Set([...collect(scene.userData.countryside.root, o => o.isMesh), ...collect(scene.userData.ambience.root, o => o.isMesh)]);
+  const corePieces = setPieces.filter(mesh => !scenery.has(mesh));
+  assert.ok(corePieces.length > 10 && corePieces.length < 70, 'farm buildings retain their original batching budget');
+  assert.ok(setPieces.length <= 80, 'farm plus twelve countryside batches and seven ambience meshes stay within eighty meshes');
   assert.ok(setPieces.reduce((sum, o) => sum + o.geometry.attributes.position.count, 0) > 5000);
   assert.equal(collect(scene, o => o.isPointLight).length, 4);
   assert.ok(collect(scene, o => o.isMesh).every(o => Number.isFinite(o.position.x) && Number.isFinite(o.position.y) && Number.isFinite(o.position.z)));
@@ -187,4 +193,125 @@ test('meadow grows, visibly cuts each plot independently, regrows next day and r
   meadow.update(4, []); assert.deepEqual(meadow.patches.map(p => p.scale.y), [1, 1], 'cleared daily cut state regrows both plots');
   meadow.root.traverse(o => { if (o.isMesh) assert.ok([...o.geometry.attributes.position.array].every(Number.isFinite)); });
   meadow.dispose(); assert.equal(scene.children.length, 0); assert.equal(geometryDisposals, geometries.size); assert.equal(materialDisposals, materials.size);
+});
+
+test('countryside surrounds the farm through 360 degrees while every solid prop clears playable ground', () => {
+  const scene = new T.Scene(), countryside = createCountryside(scene), root = countryside.root;
+  const meshes = collect(root, o => o.isMesh), matrix = new T.Matrix4();
+  assert.ok(meshes.length <= 14, 'fields, hills and woodland use a compact batch count');
+  assert.ok(root.userData.landmarks.every(mark => mark.kind !== 'cottage' && mark.kind !== 'lane-pole'), 'surroundings contain no neighboring houses or utility poles');
+  const nearForest = root.userData.landmarks.filter(mark => mark.kind === 'forest' && Math.hypot(mark.x, mark.z) < 65);
+  assert.ok(nearForest.length >= 70, 'a nearby forest frames the farm rather than only distant sparse trees');
+  assert.ok(meshes.reduce((n, mesh) => n + mesh.geometry.attributes.position.count, 0) < 60000, 'distant scenery keeps a modest geometry budget');
+  for (const x of [-23, 0, 23]) for (const z of [-23, 0, 23]) assert.ok(Math.abs(countrysideHeight(x, z) + .022) < 1e-9, 'scenery does not raise the playable farm floor');
+  root.updateMatrixWorld(true);
+  for (const mesh of meshes) {
+    assert.ok([...mesh.geometry.attributes.position.array].every(Number.isFinite));
+    if (!mesh.isInstancedMesh) continue;
+    mesh.geometry.computeBoundingBox();
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, matrix); assert.ok(matrix.elements.every(Number.isFinite) && matrix.determinant() > 0);
+      const bounds = mesh.geometry.boundingBox.clone().applyMatrix4(matrix);
+      assert.ok(bounds.max.x < -25.3 || bounds.min.x > 25.3 || bounds.max.z < -25.3 || bounds.min.z > 25.3, `${mesh.name} never intrudes on walking lanes`);
+    }
+  }
+  const ray = new T.Raycaster(); ray.near = 23; ray.far = 195;
+  for (let i = 0; i < 36; i++) {
+    const angle = i / 36 * Math.PI * 2;
+    ray.set(new T.Vector3(0, 1.65, 0), new T.Vector3(Math.sin(angle), 0, Math.cos(angle)));
+    assert.ok(ray.intersectObject(root, true).length > 0, `eye-level view at ${i * 10} degrees meets real countryside, without an open horizon gap`);
+  }
+  countryside.dispose(); assert.equal(scene.children.length, 0);
+});
+
+test('countryside weather tints are reversible and independent resources are released exactly once', () => {
+  const scene = new T.Scene(), countryside = createCountryside(scene);
+  const meshes = collect(countryside.root, o => o.isMesh), geometries = new Set(meshes.map(o => o.geometry)), materials = new Set(meshes.map(o => o.material));
+  const dayColors = [...materials].map(mat => mat.color.getHex()), ridge = meshes.find(o => o.material.emissive?.getHex() > 0).material;
+  const sunnyGlow = ridge.emissiveIntensity;
+  countryside.update(5, false, true); assert.notDeepEqual([...materials].map(mat => mat.color.getHex()), dayColors); assert.ok(ridge.emissiveIntensity < sunnyGlow);
+  const rainyGlow = ridge.emissiveIntensity;
+  countryside.update(6, true, true); assert.ok(ridge.emissiveIntensity < rainyGlow);
+  for (let i = 0; i < 20; i++) countryside.update(i, false, false);
+  assert.deepEqual([...materials].map(mat => mat.color.getHex()), dayColors, 'weather updates never accumulate a permanent tint');
+  let geometryDisposals = 0, materialDisposals = 0;
+  geometries.forEach(g => g.addEventListener('dispose', () => geometryDisposals++)); materials.forEach(m => m.addEventListener('dispose', () => materialDisposals++));
+  countryside.dispose(); countryside.dispose(); countryside.update(30, true, true);
+  assert.equal(scene.children.length, 0); assert.equal(geometryDisposals, geometries.size); assert.equal(materialDisposals, materials.size);
+});
+
+test('farm ambience changes with weather and night, stays outside walking space and releases shared resources once', () => {
+  const scene = new T.Scene(), light = new T.PointLight(0xffc17d, 9); scene.add(light);
+  const ambience = createFarmAmbience(scene), objects = collect(ambience.root, o => o.isMesh || o.isPoints), matrix = new T.Matrix4();
+  const smoke = ambience.root.getObjectByName('Khói bếp'), birds = ambience.root.getObjectByName('Chim qua cánh đồng'), butterflies = ambience.root.getObjectByName('Bướm ven đồng cỏ'), flies = ambience.root.getObjectByName('Đom đóm hàng rào');
+  assert.ok(objects.length <= 8); assert.equal(collect(ambience.root, o => o.isLight).length, 0);
+  const initialBird = Array.from(birds.instanceMatrix.array), initialSmoke = Array.from(smoke.instanceMatrix.array);
+  for (const time of [0, .04, 1, 17.99, 18, 600, NaN]) for (const night of [false, true]) for (const rainy of [false, true]) {
+    ambience.update(time, { night, rainy });
+    assert.equal(birds.visible, !night && !rainy); assert.equal(butterflies.visible, !night && !rainy); assert.equal(flies.visible, night);
+    assert.ok(smoke.material.opacity > 0 && smoke.material.opacity <= .2, 'smoke stays a soft accent');
+    assert.ok([...smoke.geometry.attributes.puffFade.array].every(n => n >= 0 && n <= 1));
+    for (const mesh of objects) if (mesh.isInstancedMesh) for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, matrix); assert.ok(matrix.elements.every(Number.isFinite)); assert.ok(matrix.determinant() > 0, 'instances use supported positive scales');
+      const p = new T.Vector3().setFromMatrixPosition(matrix);
+      if (mesh === smoke) assert.ok(p.y >= 5.8 && p.y < 8.5 && Math.abs(p.x + 16.6) < 2 && Math.abs(p.z - 16.2) < .5, 'smoke emerges over the chimney');
+      if (mesh === birds) assert.ok(p.y >= 12.5, 'bird flights stay above the farm');
+      if (mesh === butterflies) assert.ok(p.x > 18.6 && p.z > 10 && p.z < 18, 'butterflies stay along the flower verge');
+    }
+  }
+  ambience.update(4, { night: false, rainy: false });
+  assert.notDeepEqual(Array.from(birds.instanceMatrix.array), initialBird); assert.notDeepEqual(Array.from(smoke.instanceMatrix.array), initialSmoke);
+  ambience.update(4, { night: true }); const dryGlow = flies.material.uniforms.strength.value;
+  ambience.update(4, { night: true, rainy: true }); assert.ok(flies.material.uniforms.strength.value < dryGlow);
+  assert.equal(light.intensity, 9, 'ambient decoration does not take ownership of farm lights');
+  const geometries = new Set(objects.map(o => o.geometry)), materials = new Set(objects.map(o => o.material));
+  let disposals = 0; for (const resource of [...geometries, ...materials]) resource.addEventListener('dispose', () => disposals++);
+  ambience.dispose(); ambience.dispose(); ambience.update(5);
+  assert.deepEqual(scene.children, [light]); assert.equal(disposals, geometries.size + materials.size);
+});
+
+test('farm sheep animation preserves anchored roots and disguise scales across grazing, weather and inspection', () => {
+  const kit = createModelKit();
+  for (const type of ['normal', 'rabid', 'pup', 'lean', 'alpha', 'tail']) {
+    const tell = { normal: 'paws', rabid: 'eyes', pup: 'teeth', lean: 'body', alpha: 'body', tail: 'tail' }[type];
+    const model = kit.sheep({ id: type, type, wolf: true, tell, disguise: type === 'pup' ? 'baby' : type === 'lean' ? 'sheared' : 'adult' }, 0, 'hard');
+    model.position.set(4, .02, -3); model.rotation.y = .4;
+    const rootPose = [...model.position, ...model.quaternion, ...model.scale], woolScale = model.userData.wool.scale.clone(), tailScale = model.userData.tail.scale.clone();
+    const clues = collect(model, o => o.userData.part && o !== model.userData.wool).map(part => ({ part, scale: part.scale.clone() }));
+    assert.equal(model.userData.legs.length, 4); assert.equal(model.userData.eyes.length, 2); assert.equal(model.userData.ears.length, 2);
+    const headY = model.userData.head.position.y;
+    assert.ok(animateFarmSheep(model, 5, { grazing: true }).grazing > .9); assert.ok(model.userData.head.position.y < headY - .2, 'grazing lowers the head into grass');
+    for (const options of [{ night: true, grazing: true }, { rainy: true, grazing: true }, { selected: true, grazing: true }]) {
+      assert.equal(animateFarmSheep(model, 5, options).grazing, 0); assert.ok(Math.abs(model.userData.head.position.y - headY) < .01);
+    }
+    for (const time of [0, .09, 1, 5, 19.8, 600, NaN]) for (const options of [{ grazing: true }, { night: true }, { rainy: true }, { selected: true, playerPosition: { x: 4, z: -1 } }]) {
+      animateFarmSheep(model, time, options);
+      assert.deepEqual([...model.position, ...model.quaternion, ...model.scale], rootPose);
+      assert.deepEqual(model.userData.tail.scale, tailScale);
+      for (const axis of ['x', 'y', 'z']) assert.ok(Math.abs(model.userData.wool.scale[axis] / woolScale[axis] - 1) <= .0041, 'breathing retains the original alpha/clipped-wool silhouette');
+      for (const { part, scale } of clues) assert.deepEqual(part.scale, scale, `${type} clue keeps its designed size`);
+      model.traverse(part => assert.ok([...part.position, ...part.quaternion, ...part.scale].every(Number.isFinite)));
+    }
+    animateFarmSheep(model, 7, { night: true }); const pose = collect(model, () => true).map(part => [...part.position, ...part.quaternion, ...part.scale]);
+    for (let frame = 0; frame < 50; frame++) animateFarmSheep(model, frame / 10, { grazing: true });
+    animateFarmSheep(model, 7, { night: true }); assert.deepEqual(collect(model, () => true).map(part => [...part.position, ...part.quaternion, ...part.scale]), pose, 'animation does not drift after many frames');
+  }
+  kit.dispose();
+});
+
+test('seated Shiba blinks, watches, barks and yawns without moving away from its kennel', () => {
+  const kit = createModelKit(), dog = kit.shiba({ sitting: true }); dog.position.set(-9.6, 0, 10.95); dog.rotation.y = .2;
+  const rootPose = [...dog.position, ...dog.quaternion, ...dog.scale], jawRest = dog.userData.jaw.rotation.x;
+  assert.equal(dog.userData.eyes.length, 2); assert.equal(dog.userData.ears.length, 2); assert.ok(dog.userData.body && dog.userData.tail);
+  assert.equal(animateFarmDog(dog, 0, { alert: true }).barking, true); assert.ok(dog.userData.jaw.rotation.x > jawRest + .2);
+  assert.equal(animateFarmDog(dog, 20, { night: true }).yawning, true); assert.ok(dog.userData.jaw.rotation.x > jawRest + .1);
+  for (const time of [0, .08, 1, 4.18, 20, 600, NaN]) for (const night of [false, true]) for (const alert of [false, true]) {
+    animateFarmDog(dog, time, { night, alert, playerPosition: { x: dog.position.x + 1, z: dog.position.z + 2 } });
+    assert.deepEqual([...dog.position, ...dog.quaternion, ...dog.scale], rootPose);
+    dog.traverse(part => {
+      assert.ok([...part.position, ...part.quaternion, ...part.scale].every(Number.isFinite));
+      assert.ok(part.scale.x > 0 && part.scale.y > 0 && part.scale.z > 0);
+    });
+  }
+  kit.dispose();
 });

@@ -1,7 +1,7 @@
 import * as T from 'three';
 
 // All textures and particles are generated locally, including the feathered dots.
-export function createAtmosphere(scene) {
+export function createAtmosphere(scene, { radius = 85 } = {}) {
   const uniforms = { time: { value: 0 }, night: { value: 0 }, rainy: { value: 0 } };
   const skyMaterial = new T.ShaderMaterial({
     side: T.BackSide, depthWrite: false,
@@ -14,7 +14,9 @@ export function createAtmosphere(scene) {
       void main(){vec3 direction=normalize(vDirection);float h=smoothstep(-.1,.8,direction.y);
       vec3 day=mix(vec3(.81,.79,.65),vec3(.31,.57,.69),h);
       vec3 dusk=mix(vec3(.12,.23,.29),vec3(.025,.065,.14),h);
-      vec3 color=mix(day,dusk,night);color=mix(color,mix(vec3(.36,.42,.42),vec3(.23,.31,.36),h),rainy*.7);
+      vec3 color=mix(day,dusk,night);
+      vec3 rainSky=mix(mix(vec3(.36,.42,.42),vec3(.23,.31,.36),h),mix(vec3(.055,.095,.13),vec3(.025,.05,.085),h),night);
+      color=mix(color,rainSky,rainy*.7);
       // Soft, broad cloud banks drift as part of the sky draw call. Their
       // rounded edges deliberately read as painted game scenery.
       vec2 cloudUV=direction.xz/(max(direction.y,0.)+.35)*1.5+vec2(time*.008,0.);
@@ -30,7 +32,7 @@ export function createAtmosphere(scene) {
       #include <tonemapping_fragment>
       #include <colorspace_fragment> }`,
   });
-  const skyGeometry = new T.SphereGeometry(85, 24, 16), sky = new T.Mesh(skyGeometry, skyMaterial); sky.renderOrder = -100; scene.add(sky);
+  const skyGeometry = new T.SphereGeometry(radius, 32, 20), sky = new T.Mesh(skyGeometry, skyMaterial); sky.renderOrder = -100; scene.add(sky);
   function particles(count, stars) {
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -44,9 +46,9 @@ export function createAtmosphere(scene) {
         ${stars ? '' : 'p.x+=sin(time*.3+seed)*.2; p.y+=sin(time*.4+seed)*.15;'}
         vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;
         gl_PointSize=${stars ? '2.5' : 'clamp(35./-mv.z,1.,5.)'};}`,
-      fragmentShader: `uniform float time; uniform float night; varying float seed;
+      fragmentShader: `uniform float time; uniform float night; uniform float rainy; varying float seed;
         void main(){float a=1.-smoothstep(.05,.5,length(gl_PointCoord-.5));
-        gl_FragColor=vec4(${stars ? 'vec3(.72,.86,1.)' : 'vec3(.88,.77,.48)'},a*${stars ? 'night*(.5+.3*sin(time*.5+seed))' : '(.16+night*.14)'});}` });
+        gl_FragColor=vec4(${stars ? 'vec3(.72,.86,1.)' : 'vec3(.88,.77,.48)'},a*${stars ? 'night*(1.-rainy*.9)*(.5+.3*sin(time*.5+seed))' : '(1.-rainy*.8)*(.16+night*.14)'});}` });
     const points = new T.Points(geometry, material); points.frustumCulled = false; scene.add(points); return points;
   }
   const stars = particles(180, true), dust = particles(95, false);

@@ -7,6 +7,7 @@ import { dogAvailable } from './rules.js';
 import { sound } from './audio.js';
 import { gameKey, imeInterruptsGame, releaseGameKey } from './worldMath.js';
 import { animateWolf, fitCombatCamera, faceCombatActor } from './combatAnimation.js';
+import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
 
 export default function PveCombat({ state, dispatch }) {
   const host = useRef(null), engine = useRef(null), latest = useRef(state); latest.current = state;
@@ -91,11 +92,14 @@ export default function PveCombat({ state, dispatch }) {
       const dogStrike = controller.time - controller.dogAt < .7;
       const target = controller.dog && dogStrike ? { x: enemy.position.x + .5, z: enemy.position.z } : { x: player.position.x + 1, z: player.position.z - .8 };
       dog.visible = controller.dog; dog.position.lerp(new T.Vector3(target.x, .02 + (dogStrike ? Math.abs(Math.sin(now * .008)) * .035 : 0), target.z), 1 - Math.exp(-dt * 4)); dog.lookAt(enemy.position.x, dog.position.y, enemy.position.z);
+      animateFarmDog(dog, controller.time, { night: true, alert: dogStrike, playerPosition: enemy.position });
       dog.userData.tail.rotation.z = Math.sin(controller.time * (dogStrike ? 12 : 3)) * .2;
       dog.userData.head.rotation.x = dogStrike ? Math.sin(controller.time * 12) * .14 : .02;
       dog.userData.legs.forEach((leg, i) => { leg.rotation.x = dogStrike ? Math.sin(controller.time * 14 + i * Math.PI) * .5 : 0; });
       shield.visible = controller.blocking; shield.position.copy(player.position); shield.position.y += .7;
-      flock.forEach((mesh, i) => { const animal = s.flock.find(a => a.id === sheep[i].id); mesh.visible = !!animal; mesh.userData.head.rotation.x = Math.sin(controller.time * 8 + i) * .04; mesh.position.y = pose.strike ? Math.abs(Math.sin(controller.time * 18 + i)) * .035 : 0; mesh.userData.ears.forEach((ear, side) => { ear.rotation.z = (side ? 1 : -1) * (pose.strike ? .6 : .28); });
+      flock.forEach((mesh, i) => { const animal = s.flock.find(a => a.id === sheep[i].id); mesh.visible = !!animal;
+        animateFarmSheep(mesh, controller.time, { night: true });
+        mesh.userData.head.rotation.x += Math.sin(controller.time * 8 + i) * .04; mesh.position.y = pose.strike ? Math.abs(Math.sin(controller.time * 18 + i)) * .035 : 0; mesh.userData.ears.forEach((ear, side) => { ear.rotation.z = (side ? 1 : -1) * (pose.strike ? .6 : .28); });
         mesh.userData.hungerBar.visible = !!animal && s.difficulty !== 'easy' && animal.hp < 100; mesh.userData.hungerBar.quaternion.copy(mesh.quaternion.clone().invert().multiply(camera.quaternion));
         const hp = (animal?.hp ?? 100) / 100; mesh.userData.hungerFill.scale.x = hp; mesh.userData.hungerFill.position.x = (hp - 1) / 2;
       });
@@ -105,7 +109,10 @@ export default function PveCombat({ state, dispatch }) {
         if (telegraphLine) { const length = effect.line ? effect.length : controller.projectileSpeed * 1.4; object.position.set(effect.x + effect.dx * length / 2, .06, effect.z + effect.dz * length / 2); object.rotation.set(-Math.PI / 2, 0, -Math.atan2(effect.dx, effect.dz)); object.scale.set(effect.line ? effect.width * 2 : effect.radius * 2, length, 1); }
         else { object.position.set(effect.x, effect.projectile && controller.stage === 'strike' ? .6 : .07, effect.z); object.scale.setScalar(object === mark.bullet ? effect.radius / .24 : effect.radius || .5); }
       });
-      atmosphere.update(now / 1000, true); renderer.render(scene, camera);
+      atmosphere.update(controller.time, true, s.farm.weather === 'rainy');
+      scene.userData.countryside.update(controller.time, true, s.farm.weather === 'rainy');
+      scene.userData.ambience.update(controller.time, { night: true, rainy: s.farm.weather === 'rainy' });
+      renderer.render(scene, camera);
       if (now - uiAt > 90) { uiAt = now; setView({ label: s.combatHp <= 0 ? 'Sói đã gục' : controller.label, stage: controller.stage, stamina: Math.round(controller.stamina), counter: controller.time < controller.counterUntil, attackReady: controller.time >= controller.attackReadyAt }); }
     }; frame = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('keydown', down, true); document.removeEventListener('keyup', up, true); document.removeEventListener('compositionstart', blur); document.removeEventListener('compositionend', blur); document.removeEventListener('visibilitychange', blur); window.removeEventListener('blur', blur); atmosphere.dispose(); kit.dispose(); for (const g of [ringGeometry, lineGeometry, bulletGeometry, shield.geometry]) g.dispose(); slashGeometry.dispose(); slashMaterial.dispose(); wolfSlashMaterial.dispose(); sparkGeometry.dispose(); sparkMaterial.dispose(); warnMat.dispose(); hitMat.dispose(); shieldMat.dispose(); light.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); engine.current = null; };

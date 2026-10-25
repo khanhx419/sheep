@@ -1,8 +1,7 @@
 // The same modest palette is shared by buildings, props, and the barn batches.
 export function landscape(scene, { cube, ball, cylinder }) {
   // The playable farm sits inside a continuous countryside, not on a platform.
-  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; ball(scene, i % 2 ? 0x617a59 : 0x647b70, Math.cos(a) * 65, -3, Math.sin(a) * 65, 24, 10 + i % 4, 20); }
-  for (let i = 0; i < 36; i++) cube(scene, 0x897856, Math.sin(i * .08) * 6, -.025, 22 + i * 2, 3.8, .05, 2.1);
+  for (let i = 0; i < 3; i++) cube(scene, 0x897856, Math.sin(i * .08) * 6, -.025, 22 + i * 2, 3.8, .05, 2.1);
   // A broad, uneven stone path leads out of the barn to the courtyard gate.
   for (let row = 0; row < 12; row++) for (let col = 0; col < 3; col++) {
     const stone = cube(scene, [0x8c9585, 0xa5aa94, 0x788477][(row + col) % 3], (col - 1) * 0.88 + Math.sin(row) * 0.05, 0.005, 8.5 + row * 1.05, .8, .06, .9);
@@ -39,8 +38,9 @@ export function landscape(scene, { cube, ball, cylinder }) {
   cube(scene, 0x96714e, -8.5, .6, 19.7, 2.4, 1.2, .12);
   // Layered hedgerow makes the hard farm boundary visible before collision.
   for (let i = 0; i < 28; i++) for (const side of [-1, 1]) {
-    ball(scene, 0x647b70, -22 + i * 1.65, .45, side * 23.5, .95, .65, .7);
-    ball(scene, 0x647b70, side * 23.5, .45, -22 + i * 1.65, .7, .65, .95);
+    const along = -22 + i * 1.65, height = .32 + (i % 4) * .035;
+    if (side < 0 || Math.abs(along) > 4) ball(scene, i % 3 ? 0x647b70 : 0x799057, along, height, side * 23.5, .95, .42, .7);
+    ball(scene, i % 3 ? 0x647b70 : 0x799057, side * 23.5, height, along, .7, .42, .95);
   }
   // Stone well; rings have an open centre instead of a solid cylinder.
   for (let row = 0; row < 3; row++) for (let i = 0; i < 12; i++) {
@@ -106,9 +106,11 @@ export function farmStall(parent, { cube, ball, cylinder, Group }) {
   cube(parent, 0x96714e, 0, 0.8, 0, 2.6, 0.9, 1.05);
   cube(parent, 0xc2a56a, 0, 1.3, 0, 2.85, 0.14, 1.3);
   for (const side of [-1, 1]) cylinder(parent, 0x67543e, 0.065, 3, side * 1.3, 1.5, 0.45);
+  const awning = []; parent.userData.awning = awning;
   for (let i = 0; i < 6; i++) {
     const cloth = cube(parent, i % 2 ? 0xe7d6b7 : 0x647b70, -1.25 + i * 0.5, 2.75, 0, 0.5, 0.08, 1.85); cloth.rotation.x = -0.14;
-    cube(parent, i % 2 ? 0xe7d6b7 : 0x647b70, -1.25 + i * 0.5, 2.52, -0.91, 0.5, 0.35, 0.06);
+    const flap = new Group(); flap.position.set(-1.25 + i * .5, 2.69, -.91); parent.add(flap); awning.push(flap);
+    cube(flap, i % 2 ? 0xe7d6b7 : 0x647b70, 0, -.17, 0, .5, .35, .06);
   }
   for (let i = 0; i < 3; i++) {
     cylinder(parent, 0x647b70, 0.08, 0.22, -0.7 + i * 0.22, 1.48, -0.23, 0.05);
@@ -119,8 +121,18 @@ export function farmStall(parent, { cube, ball, cylinder, Group }) {
   // Friendly shopkeeper behind the counter, looking towards the barn.
   const clerk = new Group(); parent.add(clerk); parent.userData.clerk = clerk;
   cylinder(clerk, 0x647b70, 0.25, 0.9, 0, 1.15, 0.5, 0.3);
-  ball(clerk, 0xab8562, 0, 1.97, 0.5, 0.22, 0.28, 0.23);
-  cylinder(clerk, 0xc2a56a, 0.38, 0.07, 0, 2.18, 0.5);
-  cylinder(clerk, 0x9b7d52, 0.23, 0.22, 0, 2.28, 0.5);
-  for (const side of [-1, 1]) ball(clerk, 0x382d29, side * 0.08, 1.99, 0.288, 0.025, 0.032, 0.018);
+  cube(clerk, 0xdbc998, 0, 1.18, .23, .36, .55, .1);
+  const head = new Group(), arms = []; head.position.set(0, 1.97, .5); clerk.add(head);
+  ball(head, 0xab8562, 0, 0, 0, 0.22, 0.28, 0.23);
+  cylinder(head, 0xc2a56a, 0.38, 0.07, 0, .21, 0);
+  cylinder(head, 0x9b7d52, 0.23, 0.22, 0, .31, 0);
+  ball(head, 0xc49b71, 0, -.04, -.23, .065, .06, .06);
+  for (const side of [-1, 1]) {
+    ball(head, 0x382d29, side * .08, .02, -.212, .025, .032, .018);
+    ball(head, 0xe7d6b7, side * .06, -.12, -.218, .07, .025, .035);
+    const arm = new Group(); arm.position.set(side * .32, 1.5, .5); clerk.add(arm); arms.push(arm);
+    cylinder(arm, 0x647b70, .09, .45, 0, -.18, 0);
+    ball(arm, 0xab8562, 0, -.43, -.03, .1);
+  }
+  clerk.userData = { head, arms };
 }

@@ -5,6 +5,7 @@ import { createAtmosphere } from './worldAtmosphere.js';
 import { canStand, movePlayer, movementVector, interactionTarget, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, DIVIDER_WALLS, WALLS, OUTDOOR_WALLS, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch } from './worldMath.js';
 import { Icon } from './ui.jsx';
 import { sound, unlockAudio } from './audio.js';
+import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
 import './firstPerson.css';
 
 export default function FirstPersonScene({ animals, night, difficulty = 'normal', paused, suspended = false, selectedId, inspectionPart, onSelect, farm, deityStage = 0, dogSignals = [], fullMoon, onPenChange, merchantPresent, onMerchant, onSettings, onMenu, onAction, controlsRef, sensitivity = 1, children }) {
@@ -30,11 +31,12 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     renderer.domElement.tabIndex = 0;
     host.appendChild(renderer.domElement);
     const scene = new T.Scene();
-    const camera = new T.PerspectiveCamera(72, 1, 0.07, 110);
+    const camera = new T.PerspectiveCamera(72, 1, 0.07, 230);
     camera.rotation.order = 'YXZ'; camera.position.set(0, 1.65, 5.5); camera.rotation.x = -0.12; scene.add(camera);
     const kit = createModelKit(); kit.environment(scene); const meta = kit.supplements(scene);
+    const barnLanterns = scene.userData.barnShell.children.filter(object => object.isPointLight);
     const shiba = kit.shiba({ sitting: true }); shiba.position.set(DOG_SEAT.x, 0, DOG_SEAT.z); scene.add(shiba);
-    const atmosphere = createAtmosphere(scene);
+    const atmosphere = createAtmosphere(scene, { radius: 200 });
     const heldTorch = kit.flashlight(camera);
     const heldSickle = kit.sickle(camera);
     const sky = new T.HemisphereLight(0xc7dce4, 0x8a7761, 1.7); scene.add(sky);
@@ -187,7 +189,10 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
     };
     const observer = new ResizeObserver(resize); observer.observe(host); resize();
-    let last = performance.now(), frame, tick = 0, lastPhase, populationChanged = false;
+    let last = performance.now(), frame, tick = 0, lastPhase, populationChanged = false, visualTime = 0;
+    const daylightFog = new T.Color(0xb9cbb5), moonlightFog = new T.Color(0x233947), rainyFog = new T.Color(0x859c96);
+    let nightBlend = Number(props.current.night), rainBlend = Number(props.current.farm.weather === 'rainy');
+    scene.fog = new T.Fog(daylightFog, 55, 200);
     function animate(now) {
       frame = requestAnimationFrame(animate);
       const dt = Math.min((now - last) / 1000, 0.045); last = now;
@@ -195,25 +200,41 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       const current = props.current;
       if (current.paused || current.suspended || current.night || current.selectedId || current.farm.weather === 'rainy') cancelHarvest();
       if (current.suspended) { if (!world.wasPaused) release(); world.wasPaused = true; return; }
-      atmosphere.update(now / 1000, current.night, current.farm.weather === 'rainy');
+      if (!current.paused) visualTime += dt;
+      nightBlend = T.MathUtils.damp(nightBlend, Number(current.night), 1.8, dt);
+      rainBlend = T.MathUtils.damp(rainBlend, Number(current.farm.weather === 'rainy'), 1.3, dt);
+      atmosphere.update(visualTime, nightBlend, rainBlend);
+      scene.userData.countryside.update(visualTime, nightBlend, rainBlend);
+      scene.userData.ambience.update(visualTime, { night: current.night, rainy: current.farm.weather === 'rainy' });
+      scene.fog.color.copy(daylightFog).lerp(rainyFog, rainBlend * .75).lerp(moonlightFog, nightBlend);
+      scene.fog.near = T.MathUtils.lerp(55 - rainBlend * 25, 14, nightBlend);
+      scene.fog.far = T.MathUtils.lerp(200 - rainBlend * 100, 115, nightBlend);
       if (world.harvest) {
         const harvest = world.harvest; harvest.progress = Math.min(1, (now - harvest.startedAt) / 2800);
         if (now - (world.harvestUiAt || 0) > 90) { world.harvestUiAt = now; setHarvesting({ patch: harvest.patch, progress: harvest.progress }); }
         if (harvest.progress >= 1) { current.onAction?.('CUT_GRASS', { patch: harvest.patch, position: harvest.position }); world.harvest = null; setHarvesting(null); setFieldNotice('Đã gom cỏ về kho · +2 bó'); sound('click'); }
       }
-      meta.meadow.update(now / 1000, current.farm.cutPatches || [], world.harvest);
+      meta.meadow.update(visualTime, current.farm.cutPatches || [], world.harvest);
       heldSickle.visible = !!world.harvest;
       if (world.harvest) { const swing = Math.sin(world.harvest.progress * Math.PI * 8); heldSickle.rotation.set(-.15, -.25 + swing * .4, -.25 + swing * .55); heldSickle.position.y = -.36 + Math.abs(swing) * .07; }
-      const dogHead = shiba.userData.head;
-      const watching = camera.position.distanceTo(shiba.position) < 6;
-      const headTurn = watching ? T.MathUtils.clamp(Math.atan2(camera.position.x - shiba.position.x, camera.position.z - shiba.position.z), -.7, .7) : 0;
-      dogHead.rotation.y = T.MathUtils.damp(dogHead.rotation.y, headTurn, 4, dt);
-      dogHead.rotation.z = Math.sin(now * .0014) * .035;
+      animateFarmDog(shiba, visualTime, { night: current.night, alert: current.night && !!current.farm.dogScan?.danger, playerPosition: camera.position });
+      const clerk = meta.shop.userData.clerk, closeToShop = camera.position.distanceTo(meta.shop.position) < 5;
+      clerk.userData.head.rotation.y = closeToShop ? T.MathUtils.clamp(Math.atan2(meta.shop.position.x - camera.position.x, meta.shop.position.z - camera.position.z), -.65, .65) : Math.sin(visualTime * .38) * .1;
+      clerk.userData.head.rotation.z = Math.sin(visualTime * .7) * .025;
+      clerk.userData.head.position.y = 1.97 + Math.sin(visualTime * 1.8) * .008;
+      const greeting = closeToShop && visualTime % 9 < 2.6;
+      clerk.userData.arms.forEach((arm, i) => { arm.rotation.set(greeting && i === 1 ? .2 : Math.sin(visualTime * 1.3 + i) * .025, 0, greeting && i === 1 ? -2.35 + Math.sin(visualTime * 8) * .18 : (i ? -.12 : .12)); });
+      meta.shop.userData.awning.forEach((flap, i) => { flap.rotation.x = Math.sin(visualTime * 1.9 + i * .55) * (current.farm.weather === 'rainy' ? .14 : .06); });
+      for (let i = 0; i < barnLanterns.length; i++) barnLanterns[i].intensity = (current.night ? 7 : 2.5) * (1 + Math.sin(visualTime * 3.7 + i * 2) * .045 + Math.sin(visualTime * 8.1 + i) * .02);
       meta.roofPatch.visible = !!current.farm.roof; meta.divider.visible = false;
       scene.userData.barnShell.visible = current.farm.fenceLevel >= 2;
       scene.userData.roofCover.visible = !!current.farm.roof;
       meta.fenceStages.forEach((fence, level) => { fence.visible = level === (current.farm.fenceLevel || 0); fence.scale.z = .75 + (current.farm.expansion || 0) * .125; fence.position.z = 8 * (1 - fence.scale.z); });
       meta.merchant.visible = !!current.merchantPresent && !current.night;
+      meta.merchant.userData.head.position.y = 1.8 + Math.sin(visualTime * 1.6) * .009;
+      meta.merchant.userData.head.rotation.y = Math.sin(visualTime * .35) * .12;
+      meta.merchant.userData.lantern.rotation.z = Math.sin(visualTime * 1.5) * .065;
+      meta.merchant.userData.glow.intensity = 6.5 + Math.sin(visualTime * 5.1) * .25;
       if (meta.shop.userData.clerk) meta.shop.userData.clerk.visible = !current.night;
       meta.storage.children.forEach((bale, index) => { bale.visible = index < Math.ceil((current.farm.storedHay || 0) / 2); });
       const gateOpen = current.farm.pastureOpen || Math.hypot(camera.position.x, camera.position.z - 8) < 4;
@@ -222,7 +243,6 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       meta.deity.traverse(o => { if (o.isMesh) o.material.opacity = current.deityStage * (o.userData.eye ? 0.85 : 0.42); });
       if (lastPhase !== current.night) {
         lastPhase = current.night;
-        scene.fog = new T.FogExp2(current.night ? 0x233947 : 0xb7c8b3, current.night ? 0.018 : 0.009);
         sky.intensity = current.night ? 0.85 : 2.1; sky.color.set(current.night ? 0x9cb9db : 0xd5e8e2);
         sun.intensity = current.night ? 0.8 : 2.5; sun.color.set(current.night ? 0x9fbce7 : 0xffdfa5);
         rim.intensity = current.night ? 0.9 : 0.35;
@@ -232,6 +252,9 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
         world.resetPopulation = true;
         if (current.night && current.fullMoon) sound('howl');
       }
+      sky.intensity = T.MathUtils.lerp(2.1, .85, nightBlend) * (1 - rainBlend * .2);
+      sun.intensity = T.MathUtils.lerp(2.5, .8, nightBlend) * (1 - rainBlend * .4);
+      rim.intensity = T.MathUtils.lerp(.35, .9, nightBlend);
       const ids = new Set(current.animals.map(a => a.id));
       if (current.animals.length > 10) world.dense = true;
       const outside = !current.night && current.farm.pastureOpen;
@@ -312,15 +335,13 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
         object.userData.hungerBar.visible = !current.night && !selected && object.position.distanceTo(camera.position) < 5;
         object.userData.hungerBar.quaternion.copy(object.quaternion.clone().invert().multiply(camera.quaternion));
         object.userData.hungerFill.scale.x = hunger / 100; object.userData.hungerFill.position.x = (hunger / 100 - 1) / 2;
-        object.position.y = Math.sin(now * 0.0018 + object.userData.index) * 0.018;
-        object.userData.head.rotation.x = Math.sin(now * 0.0013 + object.userData.index) * 0.025;
-        const blink = (now / 1000 + object.userData.index * 1.71) % 5.4;
-        for (const eye of object.userData.eyes) eye.scale.y = blink < 0.13 ? 0.12 : 1;
-        object.userData.ears.forEach((ear, i) => { ear.rotation.x = Math.sin(now * 0.0017 + object.userData.index + i * 2) * 0.07; });
+        animateFarmSheep(object, visualTime, { night: current.night, rainy: current.farm.weather === 'rainy', grazing: outside, selected: selected === object, playerPosition: camera.position });
         object.userData.ring.visible = selected === object;
       }
       heldTorch.visible = !selected && !current.paused && !world.harvest;
-      heldTorch.position.y = -0.28 + Math.sin(now * 0.0015) * 0.008;
+      const walking = !selected && !current.paused && (world.touchForward || world.touchStrafe || ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown'].some(key => keys.has(key)));
+      heldTorch.position.set(.3 + Math.sin(visualTime * (walking ? 8 : 1.5)) * (walking ? .015 : .004), -.28 + Math.cos(visualTime * (walking ? 16 : 1.5)) * (walking ? .012 : .006), -.6);
+      heldTorch.rotation.z = Math.sin(visualTime * (walking ? 8 : 1.2)) * (walking ? .025 : .008);
       camera.getWorldDirection(direction);
       torchLight.position.copy(camera.position).addScaledVector(direction, 0.25);
       torchLight.target.position.copy(camera.position).addScaledVector(direction, 15);

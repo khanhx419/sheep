@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { createModelKit } from './worldModels.js';
 import { createAtmosphere } from './worldAtmosphere.js';
+import { animateWolf } from './combatAnimation.js';
 
 export default function CombatDiorama({ type, turn, hp, reveal = false }) {
   const host = useRef(null), latest = useRef(null);
@@ -27,19 +28,19 @@ export default function CombatDiorama({ type, turn, hp, reveal = false }) {
     const wolf = kit.wolf(type); wolf.position.set(reveal ? 0 : -1.7, 0, 16); wolf.rotation.y = 0.12; scene.add(wolf);
     const resize = () => { const { width, height } = host.current.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix(); };
     const observer = new ResizeObserver(resize); observer.observe(host.current); resize();
-    let frame, previousHp = latest.current.hp, hitAt = -10;
+    let frame, previousHp = latest.current.hp, hitAt = -10, defeatedAt = null;
     const draw = now => {
       frame = requestAnimationFrame(draw); if (document.hidden) return;
       const t = now / 1000, current = latest.current;
       if (current.hp < previousHp) hitAt = t; previousHp = current.hp;
-      const hit = Math.max(0, 1 - (t - hitAt) * 3.5);
-      const lunge = current.turn === 'enemy' ? Math.max(0, Math.sin(t * 3)) * 0.65 : 0;
-      wolf.position.z = 16 + lunge - hit * 0.35;
-      wolf.position.y = current.turn === 'victory' ? -Math.min(1.8, (t - hitAt) * 0.7) : Math.sin(t * 2.3) * 0.025;
-      wolf.rotation.z = current.turn === 'victory' ? -Math.PI * 0.35 : Math.sin(t * 2.3) * 0.012 + Math.sin(t * 65) * hit * 0.1;
-      wolf.userData.head.rotation.x = current.turn === 'enemy' ? -0.14 : Math.sin(t * 1.7) * 0.025;
-      wolf.userData.tail.rotation.z = Math.sin(t * 2.7) * 0.18;
-      atmosphere.update(t, true); renderer.render(scene, camera);
+      if (current.turn === 'victory' && defeatedAt == null) defeatedAt = t;
+      const cycle = t % 2.8, stage = current.turn !== 'enemy' ? 'wait' : cycle < 1.1 ? 'windup' : cycle < 2 ? 'strike' : 'recover';
+      const start = stage === 'strike' ? 1.1 : stage === 'recover' ? 2 : 0, duration = stage === 'windup' ? 1.1 : stage === 'strike' ? .9 : .8;
+      animateWolf(wolf, { time: t, timer: duration - (cycle - start), stageDuration: duration, castCount: Math.floor(t / 2.8), stage, pattern: reveal ? 'burst' : 'slam', player: { x: 0, z: 22 }, wolf: { x: reveal ? 0 : -1.7, z: 16 }, effects: [] }, { hitAt, deadAt: defeatedAt });
+      atmosphere.update(t, true);
+      scene.userData.countryside.update(t, true);
+      scene.userData.ambience.update(t, { night: true });
+      renderer.render(scene, camera);
     };
     frame = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); atmosphere.dispose(); kit.dispose(); key.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); };

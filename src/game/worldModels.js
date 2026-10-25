@@ -4,6 +4,8 @@ import { WALLS, DOG_HOME } from './worldMath.js';
 import { landscape, farmStall } from './worldLandscape.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { createMeadow } from './worldMeadow.js';
+import { createCountryside } from './worldCountryside.js';
+import { createFarmAmbience } from './worldAmbience.js';
 
 // All game-world art is real geometry, so clues remain visible from every side.
 export function createModelKit() {
@@ -79,7 +81,7 @@ export function createModelKit() {
     ball(head, 0xa88c76, 0, -0.15, 0.26, 0.28, 0.21, 0.2);
     ball(head, 0x3e3534, 0, -0.08, 0.44, 0.085, 0.06, 0.055);
     ball(head, 0x6e534b, 0, -0.235, 0.431, 0.06, 0.013, 0.012);
-    const eyes = [], ears = [];
+    const eyes = [], ears = [], legs = [];
     if (showClues && animal.type === 'rabid') { const drool = ball(head, 0xa6ad92, .14, -.33, .42, .035 * clue, .19 * clue, .035 * clue); drool.userData.part = 'teeth'; }
     if (showClues && (animal.tell === 'teeth' || animal.type === 'pup')) {
       ball(head, 0x382d29, 0, -.22, .4, .17, .075 * clue, .065);
@@ -100,21 +102,23 @@ export function createModelKit() {
       ball(eye, 0xfff8e5, -0.021, 0.028, 0.12, 0.022);
       ball(eye, 0xfff8e5, 0.02, -0.03, 0.12, 0.009);
       for (const z of [-0.46, 0.48]) {
-        cylinder(group, 0x87684d, 0.105, 0.42, side * 0.43, 0.28, z);
-        ball(group, 0x3e3831, side * 0.43, 0.15, z + 0.04, 0.145, 0.13, 0.19);
+        const leg = new T.Group(); leg.position.set(side * .43, .49, z); group.add(leg); legs.push(leg);
+        cylinder(leg, 0x87684d, 0.105, 0.42, 0, -.21, 0);
+        ball(leg, 0x3e3831, 0, -.34, .04, 0.145, 0.13, 0.19);
         if (showClues && animal.tell === 'paws') for (let claw = -1; claw <= 1; claw++) {
           const g = new T.ConeGeometry(.05 * clue, .22 * clue, 5); geometries.add(g);
-          const m = mesh(group, g, mat(difficulty === 'hard' ? 0x827664 : 0xa69d85), side * .43 + claw * .07, .1, z + .235);
+          const m = mesh(leg, g, mat(difficulty === 'hard' ? 0x827664 : 0xa69d85), claw * .07, -.39, .235);
           m.rotation.x = Math.PI / 2; m.userData.part = 'paws';
         }
       }
     }
+    const tail = new T.Group(); group.add(tail);
     if (showClues && animal.tell === 'tail') {
-      const tail = new T.Group(); tail.position.set(0, .83, -.98); tail.rotation.x = -.35; tail.scale.setScalar(clue); group.add(tail);
+      tail.position.set(0, .83, -.98); tail.rotation.x = -.35; tail.scale.setScalar(clue);
       ball(tail, 0x515d65, 0, -0.25, -0.35, 0.2, 0.3, 0.58);
       ball(tail, 0x9a9a8b, 0, -0.39, -0.78, 0.13, 0.18, 0.28); tail.userData.part = 'tail';
-    } else ball(group, shade, 0, 0.91, -0.88, 0.2, 0.21, 0.21);
-    group.userData = { animalId: animal.id, head, wool, eyes, ears, baseY: 0, index };
+    } else { tail.position.set(0, .91, -.88); ball(tail, shade, 0, 0, 0, .2, .21, .21); }
+    group.userData = { animalId: animal.id, head, wool, eyes, ears, legs, tail, baseY: 0, index };
     if (animal.age === 'baby' || animal.disguise === 'baby') group.scale.setScalar(0.63);
     group.rotation.y = [0.25, -0.25, 0.5, -0.5, 0.1][index % 5];
     const ringGeometry = new T.RingGeometry(0.88, 0.92, 40); geometries.add(ringGeometry);
@@ -125,7 +129,7 @@ export function createModelKit() {
     const barGeometry = new T.PlaneGeometry(1, .055); geometries.add(barGeometry);
     const backMat = new T.MeshBasicMaterial({ color: 0x253e31, side: T.DoubleSide }), fillMat = new T.MeshBasicMaterial({ color: 0xb8cf80, side: T.DoubleSide }); materials.add(backMat); materials.add(fillMat);
     const back = new T.Mesh(barGeometry, backMat), fill = new T.Mesh(barGeometry, fillMat); fill.position.z = .002; hungerBar.add(back, fill); group.userData.hungerBar = hungerBar; group.userData.hungerFill = fill;
-    bake(wool); bake(head); bake(group);
+    legs.forEach(bake); bake(tail); bake(wool); bake(head); bake(group);
     return group;
   }
   function environment(scene) {
@@ -201,15 +205,6 @@ export function createModelKit() {
       cube(scene, 0x766240, obstacle.x, 0.5, obstacle.z, 0.13, 1.03, obstacle.d + 0.04);
       for (let i = 0; i < 8; i++) cube(scene, 0xc7aa65, obstacle.x - 1 + i * 0.29, 1.02, obstacle.z, 0.08, 0.04, 1.8);
     }
-    for (let i = 0; i < 46; i++) {
-      const seed = i * 2.3999, radius = 26 + i % 3 * 3;
-      const x = Math.cos(seed) * radius, z = Math.sin(seed) * radius;
-      cylinder(scene, 0x5b4736, 0.18, 2.3, x, 1.15, z);
-      for (let tier = 0; tier < 3; tier++) {
-        const g = new T.ConeGeometry(2.2 - tier * 0.45, 3.7, 6); geometries.add(g);
-        mesh(scene, g, mat([0x314c3b, 0x3b5a42, 0x456247][tier]), x, 3.2 + tier * 1.4, z);
-      }
-    }
     for (let i = 0; i < 23; i++) for (const side of [-1, 1]) {
       cube(scene, 0x715b41, side * 23.5, 0.7, -22 + i * 2, 0.15, 1.4, 0.15);
       cube(scene, 0x8e7550, side * 23.5, 0.6, -22 + i * 2, 0.1, 0.12, 2.1);
@@ -228,6 +223,9 @@ export function createModelKit() {
     // of individual draw calls. Dynamic animals remain independently selectable.
     landscape(scene, { cube, ball, cylinder });
     bake(scene);
+    const countryside = createCountryside(scene), ambience = createFarmAmbience(scene);
+    scene.userData.countryside = countryside; scene.userData.ambience = ambience;
+    extraDisposers.push(() => countryside.dispose(), () => ambience.dispose());
   }
   function wolf(type = 'normal') {
     const group = new T.Group(), head = new T.Group(); head.position.set(0, 1.75, 0.22); group.add(head);
@@ -355,10 +353,20 @@ export function createModelKit() {
     }
     deity.traverse(o => { if (o.isMesh) { const m = new T.MeshBasicMaterial({ color: o.material.color, transparent: true, opacity: 0, depthWrite: false }); materials.add(m); o.material = m; } });
     const merchant = new T.Group(); merchant.position.set(-4, 0, 12.5); scene.add(merchant);
-    cylinder(merchant, 0x31323c, 0.58, 1.6, 0, 0.8, 0, 0.25); ball(merchant, 0x2e3037, 0, 1.8, 0, 0.38, 0.42, 0.35);
-    ball(merchant, 0x8e806a, 0, 1.72, -0.28, 0.17, 0.18, 0.1); cylinder(merchant, 0x413c3b, 0.05, 1.8, 0.6, 0.9, 0);
-    cube(merchant, 0x916b3c, 0.6, 1.15, -0.08, 0.2, 0.27, 0.2);
-    const glow = new T.PointLight(0xeebf71, 7, 5, 1.5); glow.position.set(0.6, 1.1, -0.15); merchant.add(glow);
+    cylinder(merchant, 0x31323c, 0.58, 1.6, 0, 0.8, 0, 0.25);
+    const merchantHead = new T.Group(); merchantHead.position.set(0, 1.8, 0); merchant.add(merchantHead);
+    ball(merchantHead, 0x2e3037, 0, 0, 0, .38, .42, .35);
+    ball(merchantHead, 0x8e806a, 0, -.08, -.28, .17, .18, .1);
+    for (const side of [-1, 1]) ball(merchantHead, 0xd6bc85, side * .055, -.025, -.369, .015, .018, .01);
+    cylinder(merchant, 0x413c3b, 0.05, 1.8, 0.6, 0.9, 0);
+    const lantern = new T.Group(); lantern.position.set(.6, 1.48, -.08); merchant.add(lantern);
+    const loopGeometry = new T.TorusGeometry(.075, .015, 5, 10); geometries.add(loopGeometry);
+    mesh(lantern, loopGeometry, mat(0x67543e), 0, -.05, 0);
+    mesh(lantern, box, mat(0xe9c27c, 0xe2a450), 0, -.25, 0, .16, .23, .16);
+    for (const y of [-.38, -.12]) cube(lantern, 0x67543e, 0, y, 0, .24, .045, .24);
+    for (const x of [-.095, .095]) for (const z of [-.095, .095]) cube(lantern, 0x67543e, x, -.25, z, .02, .25, .02);
+    const glow = new T.PointLight(0xeebf71, 7, 5, 1.5); glow.position.set(0, -.25, -.1); lantern.add(glow);
+    merchant.userData = { head: merchantHead, lantern, glow }; bake(merchant); bake(merchantHead); bake(lantern);
     return { roofPatch, divider, deity, merchant, shop, storage, gates, fenceStages, kennel, meadow };
   }
   function doghouse() {
@@ -383,30 +391,37 @@ export function createModelKit() {
     bake(home); return home;
   }
   function shiba({ sitting = false } = {}) {
-    const dog = new T.Group(), legs = [];
+    const dog = new T.Group(), body = new T.Group(), legs = [], ears = [], eyes = []; dog.add(body);
     if (sitting) {
-      ball(dog, 0xc79758, 0, .4, -.12, .29, .35, .3);
-      ball(dog, 0xf1dfb9, 0, .43, .13, .2, .25, .15);
+      ball(body, 0xc79758, 0, .4, -.12, .29, .35, .3);
+      ball(body, 0xf1dfb9, 0, .43, .13, .2, .25, .15);
       for (const side of [-1, 1]) {
         ball(dog, 0xc79758, side * .22, .17, -.14, .16, .16, .23);
         ball(dog, 0xf1dfb9, side * .13, .24, .22, .07, .22, .075);
         ball(dog, 0xf1dfb9, side * .13, .065, .27, .085, .06, .13);
       }
     } else {
-      ball(dog, 0xc79758, 0, .43, 0, .26, .28, .44);
-      ball(dog, 0xf1dfb9, 0, .37, .22, .21, .22, .23);
+      ball(body, 0xc79758, 0, .43, 0, .26, .28, .44);
+      ball(body, 0xf1dfb9, 0, .37, .22, .21, .22, .23);
       for (const side of [-1, 1]) for (const z of [-.23, .23]) { const leg = new T.Group(); leg.position.set(side * .17, .32, z); dog.add(leg); ball(leg, 0xc79758, 0, -.13, 0, .065, .18, .07); legs.push(leg); }
     }
     const head = new T.Group(); head.position.set(0, sitting ? .82 : .72, sitting ? .16 : .36); dog.add(head);
     ball(head, 0xc79758, 0, 0, 0, .25, .24, .24); ball(head, 0xf1dfb9, 0, -.07, .16, .2, .14, .14);
     for (const side of [-1, 1]) {
-      const g = new T.ConeGeometry(.1, .23, 4); geometries.add(g); mesh(head, g, mat(0xc79758), side * .17, .23, 0);
-      ball(head, 0x303938, side * .11, .015, .21, .026); ball(head, 0xf1dfb9, side * .11, .085, .19, .046, .025, .035);
+      const ear = new T.Group(); ear.position.set(side * .17, .23, 0); head.add(ear); ears.push(ear);
+      const g = new T.ConeGeometry(.1, .23, 4); geometries.add(g); mesh(ear, g, mat(0xc79758), 0, 0, 0);
+      ball(ear, 0xd8aa96, 0, -.015, .055, .042, .065, .025);
+      const eye = new T.Group(); eye.position.set(side * .11, .015, .21); head.add(eye); eyes.push(eye);
+      ball(eye, 0x303938, 0, 0, 0, .026); ball(eye, 0xfff5e3, -.007, .008, .021, .008);
+      ball(head, 0xf1dfb9, side * .11, .085, .19, .046, .025, .035);
     }
     ball(head, 0x303938, 0, -.03, .295, .043, .031, .03);
+    const jaw = new T.Group(); jaw.position.set(0, -.1, .13); head.add(jaw);
+    ball(jaw, 0x303938, 0, -.035, .08, .105, .025, .08);
+    ball(jaw, 0xf1dfb9, 0, -.055, .07, .12, .045, .09);
     const tailGeometry = new T.TorusGeometry(.14, .065, 7, 16, Math.PI * 1.8); geometries.add(tailGeometry);
     const tail = mesh(dog, tailGeometry, mat(0xf1dfb9), sitting ? .2 : .03, sitting ? .32 : .65, -.4); tail.rotation.y = .7; tail.userData.part = 'wag';
-    dog.userData = { head, tail, legs }; bake(dog); bake(head); return dog;
+    dog.userData = { head, tail, legs, body, ears, eyes, jaw }; bake(body); bake(dog); bake(head); return dog;
   }
   function farmer() {
     const actor = new T.Group(), legs = []; cylinder(actor, 0x647b70, .22, .55, 0, .8, 0, .3);
