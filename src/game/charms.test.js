@@ -1,13 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { charmOdds, balanceOdds, drawCharm, balanceDrift, CHARM_ITEMS, BOMB_DAMAGE } from './charms.js';
+import { charmOffers, charmOffer, CHARM_ITEMS, BOMB_DAMAGE } from './charms.js';
 import { newGame, gameReducer as reduce, advanceDawn, readSave, SAVE_KEY } from './rules.js';
 import { evolveWolf, calculateStrike } from './catalog.js';
 import { PveEngine } from './PveEngine.js';
 import { createCombatCharms } from './combatCharms.js';
-const rollFor = (id, day = 1, coins = 3) => { const pool = charmOdds(day, coins); let before = 0; for (const row of pool) { if (row.id === id) return (before + row.chance / 2) / 100; before += row.chance; } throw new Error(id); };
-const bet = (state, id, coins = 3, balanceRoll = .5) => reduce(state, { type: 'WEIGH_CHARM', coins, balanceRoll, charmRoll: rollFor(id, state.day, coins) });
+const bet = (state, id, balanceRoll = .5) => reduce(state, { type: 'WEIGH_CHARM', item: id, balanceRoll });
 const claim = state => reduce(state, { type: 'RESOLVE_CHARM', id: state.magic.ritual.id });
 function fight() {
   let state = newGame(); const wolf = { ...evolveWolf('normal', 1), id: 'test-wolf', wolf: true, penId: 0, checked: [], defeated: false };
@@ -15,56 +14,66 @@ function fight() {
 }
 const restore = state => readSave({ getItem: key => key === SAVE_KEY ? JSON.stringify(state) : null });
 
-test('larger offerings raise actual VIP rewards while making balance harder; later interest remains rarer', () => {
-  for (const day of [1, 11, 31, 100]) {
-    let previous = null;
-    for (let coins = 1; coins <= 12; coins++) {
-      const pool = charmOdds(day, coins), odds = balanceOdds(day, coins);
-      assert.ok(Math.abs(pool.reduce((sum, row) => sum + row.chance, 0) - 100) < 1e-8);
-      assert.ok(Math.abs(pool.reduce((sum, row) => sum + row.receiveChance, 0) - odds.balanced) < 1e-8);
-      assert.ok(odds.vip > 0 && odds.vip < odds.balanced && odds.balanced < 100);
-      if (previous) { assert.ok(odds.vip > previous.vip); assert.ok(odds.balanced < previous.balanced); }
-      for (const row of pool) assert.equal(drawCharm(day, rollFor(row.id, day, coins), coins), row.id);
-      previous = odds;
-    }
-  }
-  for (const coins of [1, 3, 6, 12]) assert.ok(charmOdds(31, coins).find(row => row.id === 'yieldCharm').receiveChance < charmOdds(1, coins).find(row => row.id === 'yieldCharm').receiveChance);
+test('each selected charm ticket has its own fixed fee and chance, with expensive VIP rewards less likely', () => {
+  const offers = charmOffers(1);
+  assert.equal(offers.length, 8);
+  assert.equal(charmOffer(1, 'forageCharm').price, 1); assert.equal(charmOffer(1, 'forageCharm').chance, .85);
+  assert.equal(charmOffer(1, 'yieldCharm').price, 6); assert.equal(charmOffer(1, 'yieldCharm').chance, .22);
+  for (const a of offers) for (const b of offers) if (a.price > b.price) assert.ok(a.chance < b.chance);
+  assert.equal(charmOffer(1, 'hungerCurse'), null);
+  assert.ok(charmOffer(31, 'yieldCharm').chance < charmOffer(1, 'yieldCharm').chance);
+  assert.equal(charmOffer(100, 'yieldCharm').chance, .08);
 });
 
-test('the saved signed weight deviation, rather than an unrelated success roll, decides balance', () => {
-  for (const coins of [1, 3, 12]) for (const id of Object.keys(CHARM_ITEMS)) {
-    for (const balanceRoll of [0, .05, .3, .5, .7, .95, .999]) {
-      const state = bet(newGame(), id, coins, balanceRoll), ritual = state.magic.ritual;
-      assert.ok(Math.abs(ritual.delta - (balanceRoll * 2 - 1) * balanceDrift(coins, id)) < 1e-10);
+test('the signed deviation reproduces each displayed ticket chance and only rewards the selected charm', () => {
+  for (const day of [1, 31]) for (const id of Object.keys(CHARM_ITEMS)) {
+    const offer = charmOffer(day, id);
+    let wins = 0;
+    for (let i = 0; i < 200; i++) {
+      const roll = (i + .5) / 200, state = bet({ ...newGame(), day }, id, roll), ritual = state.magic.ritual;
+      assert.ok(Math.abs(ritual.delta - (roll * 2 - 1) / offer.chance) < 1e-10);
+      assert.equal(ritual.item, id); assert.equal(ritual.coins, offer.price); assert.equal(ritual.chance, offer.chance);
       assert.equal(ritual.balanced, Math.abs(ritual.delta) <= 1);
-      assert.equal(state.gold, 25 - coins);
+      assert.equal(state.gold, 25 - offer.price);
+      if (ritual.balanced) { wins++; assert.equal(claim(state).inventory[id], 1); }
     }
+    assert.ok(Math.abs(wins / 200 - offer.chance) < .011, 'advertised probability matches observed wins across the roll interval');
   }
 });
 
-test('one paid offering per visit survives save/close/resume and awards its charm exactly once', () => {
-  let state = bet(newGame(), 'bombCharm', 9);
-  assert.equal(state.inventory.bombCharm || 0, 0, 'reward stays sealed until the ritual finishes');
-  assert.equal(bet(state, 'yieldCharm', 12).gold, state.gold);
+test('one paid offering per visit survives save/close/resume and awards its selected charm exactly once', () => {
+  let state = bet(newGame(), 'bombCharm');
+  assert.equal(state.inventory.bombCharm || 0, 0);
+  assert.equal(bet(state, 'yieldCharm').gold, state.gold);
   assert.deepEqual(restore(state).magic, state.magic);
   assert.equal(reduce(state, { type: 'RESOLVE_CHARM', id: 'wrong' }).inventory.bombCharm || 0, 0);
   state = claim(restore(state)); assert.equal(state.inventory.bombCharm, 1);
   assert.equal(claim(state).inventory.bombCharm, 1);
   assert.equal(bet(state, 'blinkCharm').gold, state.gold);
   const night = reduce(bet(newGame(), 'blinkCharm'), { type: 'NIGHT', residents: [] });
-  assert.equal(night.inventory.blinkCharm, 1, 'leaving before the animation ends does not lose the paid result');
+  assert.equal(night.inventory.blinkCharm, 1);
   const nextVisit = { ...advanceDawn({ ...night, residents: [] }, () => .9), day: 3 };
-  assert.equal(bet(nextVisit, 'speedCharm').gold, nextVisit.gold - 3);
+  assert.equal(bet(nextVisit, 'speedCharm').gold, nextVisit.gold - charmOffer(3, 'speedCharm').price);
 });
 
-test('failed offerings keep the cost; invalid stakes, absent merchants and direct charm purchases cannot bypass the scale', () => {
-  const failed = claim(bet(newGame(), 'moonCharm', 12, .999));
-  assert.equal(failed.gold, 13); assert.equal(failed.inventory.moonCharm || 0, 0);
-  for (const coins of [0, -1, 13, 1.5, NaN, Infinity]) assert.equal(bet(newGame(), 'bombCharm', coins).gold, 25);
-  assert.equal(bet({ ...newGame(), gold: 2 }, 'bombCharm', 3).gold, 2);
+test('failed tickets keep their fee and cannot choose a prize with a forged cheap price', () => {
+  const failed = claim(bet(newGame(), 'moonCharm', .999));
+  assert.equal(failed.gold, 20); assert.equal(failed.inventory.moonCharm || 0, 0);
+  for (const item of ['unknown', 'hungerCurse', '', null]) assert.equal(bet(newGame(), item).gold, 25);
+  const forged = reduce(newGame(), { type: 'WEIGH_CHARM', item: 'yieldCharm', coins: 1, balanceRoll: .5 });
+  assert.equal(forged.gold, 19); assert.equal(forged.magic.ritual.coins, 6);
+  assert.equal(bet({ ...newGame(), gold: 2 }, 'bombCharm').gold, 2);
   assert.equal(bet({ ...newGame(), day: 2 }, 'bombCharm').gold, 25);
   assert.equal(bet({ ...newGame(), phase: 'night' }, 'bombCharm').gold, 25);
   assert.equal(reduce(newGame(), { type: 'BUY', item: 'bombCharm' }).inventory.bombCharm || 0, 0);
+});
+
+test('a previously paid random-pool ritual keeps its result when loaded after the ticket update', () => {
+  const state = newGame(); state.gold = 13;
+  state.magic = { sequence: 1, lastWeighedDay: 1, ritual: { id: 'scale-1-1', day: 1, coins: 12, item: 'moonCharm', delta: 0, balanced: true, claimed: false } };
+  const loaded = restore(state); assert.ok(loaded);
+  const resolved = claim(loaded); assert.equal(resolved.gold, 13); assert.equal(resolved.inventory.moonCharm, 1);
+  assert.equal(claim(resolved).inventory.moonCharm, 1);
 });
 
 test('bombs and teleports consume owned charms; delayed bomb damage cannot be replayed after a reload', () => {
@@ -108,7 +117,8 @@ test('interest pays 150 percent once, respects hunger, and the bad charm adds on
   assert.equal(reduce(state, { type: 'USE', item: 'yieldCharm' }).inventory.yieldCharm, 1);
   const morning = advanceDawn(state, () => .9); assert.equal(morning.gold - state.gold, 7); assert.equal(morning.farm.incomeMultiplier, 1);
   assert.equal(advanceDawn({ ...state, farm: { ...state.farm, fed: false } }, () => .9).gold, state.gold);
-  const cursed = claim(bet(newGame(), 'hungerCurse'));
+  const legacy = newGame(); legacy.magic = { sequence: 1, lastWeighedDay: 1, ritual: { id: 'legacy-curse', day: 1, coins: 3, item: 'hungerCurse', delta: 0, balanced: true, claimed: false } };
+  const cursed = claim(legacy);
   assert.equal(claim(cursed).farm.hungerCurse, 10);
   const hungry = advanceDawn(cursed, () => .9); assert.equal(hungry.flock[0].hunger, 25); assert.equal(hungry.farm.hungerCurse, 0);
   const boosted = { ...morning, inventory: { ...morning.inventory, forageCharm: 1, hay: 11 } };

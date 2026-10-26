@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import MysticBalance from '../src/game/MysticBalance.jsx';
 import { Inventory } from '../src/game/PhasePanels.jsx';
 import { newGame, gameReducer } from '../src/game/rules.js';
-import { charmOdds, CHARMS } from '../src/game/charms.js';
+import { CHARMS } from '../src/game/charms.js';
 import { Modal } from '../src/game/ui.jsx';
 import '../src/game/game.css';
 import '../src/game/gdd.css';
@@ -16,10 +16,7 @@ function reducer(state, action) {
   if (action.type === 'QA_CASE') return { ...state, qaCase: action.value };
   if (action.type === 'QA_BAG') return { ...state, qaBag: !state.qaBag };
   if (action.type === 'QA_RESET') return { ...fresh(action.day || 1), qaRun: state.qaRun + 1 };
-  if (action.type === 'WEIGH_CHARM' && state.qaCase !== 'random') {
-    let before = 0; const id = state.qaCase === 'failure' ? 'bombCharm' : state.qaCase;
-    for (const row of charmOdds(state.day, action.coins)) { if (row.id === id) { action = { ...action, charmRoll: (before + row.chance / 2) / 100, balanceRoll: state.qaCase === 'failure' ? .999 : .5 }; break; } before += row.chance; }
-  }
+  if (action.type === 'WEIGH_CHARM' && state.qaCase !== 'random') action = { ...action, balanceRoll: state.qaCase === 'failure' ? .999 : .5 };
   return gameReducer(state, action);
 }
 function Preview() {
@@ -27,7 +24,7 @@ function Preview() {
   return <div className="game-app immersive quiet-farm is-playing" style={{ background: 'radial-gradient(ellipse at top,#3c5144,#102720)' }}>
     <div style={{position:'fixed',left:8,top:8,zIndex:2000,display:'flex',gap:8,alignItems:'center',padding:8,background:'#142d27',color:'#dacda9',fontSize:11,borderRadius:8}}>
       <span role="status">Xu: {state.gold} · Ngày {state.day} · Bùa: {Object.entries(state.inventory).filter(([id,n])=> CHARMS[id]&&n>0).map(([id,n])=>`${CHARMS[id].name} ×${n}`).join(', ') || 'chưa có'}</span>
-      <select aria-label="Kết quả kiểm thử" value={state.qaCase} onChange={e=>dispatch({type:'QA_CASE',value:e.target.value})}><option value="random">Ngẫu nhiên thật</option><option value="bombCharm">Cân bằng · Bùa nổ</option><option value="yieldCharm">Cân bằng · Lợi tức</option><option value="hungerCurse">Cân bằng · Bùa đen</option><option value="failure">Cân lệch</option></select>
+      <select aria-label="Kết quả kiểm thử" value={state.qaCase} onChange={e=>dispatch({type:'QA_CASE',value:e.target.value})}><option value="random">Ngẫu nhiên thật</option><option value="success">Cân bằng</option><option value="failure">Cân lệch</option></select>
       <button onClick={()=>dispatch({type:'QA_RESET',day:1})}>Làm lại ngày 1</button><button onClick={()=>dispatch({type:'QA_RESET',day:31})}>Ngày 31</button><button onClick={()=>dispatch({type:'QA_BAG'})}>{state.qaBag?'Trở về cân':'Túi đồ'}</button>
     </div>
     <Modal title={state.qaBag?'Túi đồ kiểm thử':'Cán cân thương nhân'} className="camp-menu charm-modal">{state.qaBag?<Inventory state={state} dispatch={dispatch}/>:<MysticBalance key={`${state.day}-${state.qaRun}`} state={state} dispatch={dispatch}/>}</Modal>

@@ -7,3 +7,5 @@
 
 .mystic-stage{height:230px}.mystic-balance header h2{font-size:28px;margin:5px 0}.mystic-balance header p{margin:6px 0}.mystic-result{min-height:82px}.mystic-result h3{font-size:18px;margin-bottom:6px}.charm-offering{padding:10px 16px}.charm-offering input{margin:10px 0}.mystic-stake{margin-top:4px}.charm-odds{margin-top:10px;padding-top:10px}
 @media(max-width:650px){.mystic-stage{height:205px}.mystic-result{min-height:95px}.mystic-balance header h2{font-size:24px}.charm-estimates{font-size:10px;gap:5px}}
+
+.charm-offering select{width:100%;max-width:100%;margin:12px 0;padding:11px 9px;border-radius:6px;border:1px solid #c2b28666;background:#1d352d;color:#e8ddbf;font-size:12px;cursor:pointer}.charm-offering select:disabled{opacity:.75;cursor:default}

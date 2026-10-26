@@ -1,6 +1,5 @@
 export const MIN_OFFERING = 1;
 export const MAX_OFFERING = 12;
-export const DEFAULT_OFFERING = 3;
 export const BOMB_DAMAGE = 34;
 export const CHARMS = {
   forageCharm: { name: 'Bùa Cỏ Non', glyph: 'sprout', color: '#a8c887', description: 'Đổi thành 2 bó cỏ khô ngoài chiến đấu. Kho tối đa 12 bó.' },
@@ -15,22 +14,26 @@ export const CHARMS = {
 };
 export const CHARM_ITEMS = Object.fromEntries(Object.entries(CHARMS).filter(([id]) => id !== 'hungerCurse').map(([id, charm]) => [id, { ...charm, id, price: 0, shop: 'charm' }]));
 export function charmGrade(id) { return ['moonCharm', 'yieldCharm'].includes(id) ? 2 : ['forageCharm', 'insightCharm'].includes(id) ? 0 : 1; }
-export function balanceDrift(coins, id) { return 1.25 + .055 * (coins - 1) + .13 * charmGrade(id); }
-export function charmOdds(day = 1, coins = DEFAULT_OFFERING) {
-  coins = Math.max(MIN_OFFERING, Math.min(MAX_OFFERING, Math.floor(Number(coins) || MIN_OFFERING)));
-  const interest = Math.max(2, 8 - Math.floor(Math.max(0, day - 1) / 5));
-  const pool = Object.entries({ forageCharm: 24 - interest, insightCharm: 16, wardCharm: 14, moonCharm: 8, bombCharm: 15, blinkCharm: 12, speedCharm: 9, yieldCharm: interest, hungerCurse: 2 }).map(([id, weight]) => ({ id, weight: weight * (charmGrade(id) === 2 ? 1 + .35 * (coins - 1) : charmGrade(id) === 1 && id !== 'hungerCurse' ? 1 + .08 * (coins - 1) : 1) }));
-  const total = pool.reduce((sum, row) => sum + row.weight, 0);
-  return pool.map(({id, weight}) => { const chance = weight / total * 100, balanceChance = 1 / balanceDrift(coins, id); return { id, chance, balanceChance, receiveChance: chance * balanceChance }; });
+export const CHARM_TICKETS = {
+  forageCharm: { price: 1, chance: .85 },
+  insightCharm: { price: 2, chance: .75 },
+  wardCharm: { price: 3, chance: .65 },
+  speedCharm: { price: 3, chance: .62 },
+  bombCharm: { price: 4, chance: .55 },
+  blinkCharm: { price: 4, chance: .5 },
+  moonCharm: { price: 5, chance: .35 },
+  yieldCharm: { price: 6, chance: .22 },
+};
+export function charmOffer(day, id) {
+  const ticket = CHARM_TICKETS[id];
+  if (!ticket) return null;
+  const chance = id === 'yieldCharm' ? Math.max(.08, ticket.chance - Math.floor(Math.max(0, day - 1) / 5) * .02) : ticket.chance;
+  return { id, price: ticket.price, chance };
 }
-export function balanceOdds(day, coins) {
-  const pool = charmOdds(day, coins);
-  return { balanced: pool.reduce((sum, row) => sum + row.receiveChance, 0), vip: pool.filter(row => charmGrade(row.id) === 2).reduce((sum, row) => sum + row.receiveChance, 0) };
-}
-export function drawCharm(day, roll, coins = DEFAULT_OFFERING) {
-  let value = Math.min(.999999999, Math.max(0, Number.isFinite(roll) ? roll : 0)) * 100;
-  for (const item of charmOdds(day, coins)) { value -= item.chance; if (value < 0) return item.id; }
-  return 'hungerCurse';
+export function charmOffers(day = 1) { return Object.keys(CHARM_TICKETS).map(id => charmOffer(day, id)); }
+// Pending rituals from the previous random-pool version keep their paid result.
+export function ritualChance(ritual) {
+  return ritual.chance ?? 1 / (1.25 + .055 * (ritual.coins - 1) + .13 * charmGrade(ritual.item));
 }
 export function canUseCharm(state, id) {
   if (!['day', 'night', 'combat'].includes(state.phase) || !(state.inventory[id] > 0)) return false;

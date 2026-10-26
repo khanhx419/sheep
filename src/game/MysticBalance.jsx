@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CHARMS, MIN_OFFERING, MAX_OFFERING, DEFAULT_OFFERING, charmOdds, balanceOdds, charmGrade } from './charms.js';
+import { CHARMS, charmOffer, charmOffers, ritualChance, charmGrade } from './charms.js';
 import { merchantAvailable, nextMerchantDay } from './rules.js';
 import ItemArt from './ItemArt.jsx';
 import { sound, unlockAudio } from './audio.js';
@@ -8,7 +8,7 @@ import './mystic.css';
 export default function MysticBalance({ state, dispatch }) {
   const ritual = state.magic?.ritual?.day === state.day ? state.magic.ritual : null;
   const [stage, setStage] = useState(ritual?.claimed ? 'done' : 'idle');
-  const [offering, setOffering] = useState(DEFAULT_OFFERING);
+  const [selected, setSelected] = useState('forageCharm');
   useEffect(() => {
     if (!ritual) { setStage('idle'); return; }
     if (ritual.claimed) { setStage('done'); return; }
@@ -25,9 +25,10 @@ export default function MysticBalance({ state, dispatch }) {
   const definition = shown ? CHARMS[ritual.item] : null;
   const spent = state.magic?.lastWeighedDay === state.day;
   const available = merchantAvailable(state);
-  const coins = ritual?.coins || offering, odds = balanceOdds(state.day, coins), tilt = Math.max(-16, Math.min(16, (ritual?.delta || 0) * 9));
-  const title = stage === 'weighing' ? `${coins} Xu. Một lá bùa chưa có tên.` : stage === 'settled' ? ritual.balanced ? 'Cán cân đứng yên… nó đã chọn bạn.' : `Cán cân nghiêng. Sương mù giữ lại ${coins} Xu.` : stage === 'reveal' ? 'Ấn phép đang hiện ra.' : stage === 'burn' ? 'Giấy hóa tro. Phép thuật ở lại.' : ritual ? ritual.balanced ? CHARMS[ritual.item].name : 'Không có lá bùa nào đáp lại.' : 'Đặt cược với màn sương.';
-  function weigh() { unlockAudio(); dispatch({ type: 'WEIGH_CHARM', coins: offering, balanceRoll: Math.random(), charmRoll: Math.random() }); }
+  const target = ritual?.item || selected, offer = charmOffer(state.day, target), coins = ritual?.coins || offer.price;
+  const chance = ritual ? ritualChance(ritual) : offer.chance, tilt = Math.max(-16, Math.min(16, (ritual?.delta || 0) * 9));
+  const title = stage === 'weighing' ? `${CHARMS[target].name} đã được niêm phong.` : stage === 'settled' ? ritual.balanced ? 'Cán cân đứng yên… nó đã chọn bạn.' : `Cán cân nghiêng. Sương mù giữ lại ${coins} Xu.` : stage === 'reveal' ? 'Ấn phép đang hiện ra.' : stage === 'burn' ? 'Giấy hóa tro. Phép thuật ở lại.' : ritual ? (ritual.balanced ? CHARMS[ritual.item].name : 'Lá bùa chưa đáp lại.') : 'Chọn lá bùa bạn muốn thử.';
+  function weigh() { unlockAudio(); dispatch({ type: 'WEIGH_CHARM', item: selected, balanceRoll: Math.random() }); }
   return <section className={`mystic-balance stage-${stage} ${ritual ? ritual.balanced ? 'is-balanced' : 'is-failed' : ''}`} style={{ '--failure-tilt': `${tilt}deg`, '--failure-counter': `${-tilt}deg`, '--failed-card-top': tilt > 0 ? '62%' : '36%' }} aria-label="Cân bùa của thương nhân bí ẩn">
     <header><span className="eyebrow">THƯƠNG NHÂN BÍ ẨN · {state.gold} XU</span><h2>Cán cân sương mù</h2><p>“Vàng có trọng lượng. May mắn cũng vậy.”</p></header>
     <div className="mystic-stage" aria-label={ritual ? ritual.balanced ? 'Cân đang giữ thăng bằng' : 'Cân bị lệch' : 'Đĩa trái để trống, lá bùa dấu hỏi ở đĩa phải'}>
@@ -44,11 +45,11 @@ export default function MysticBalance({ state, dispatch }) {
       </svg>
       <div className="scale-card-wrap"><div className="charm-paper">{shown ? <ItemArt item={ritual.item} size={124}/> : <div className="unknown-charm"><span>?</span><i>✧</i></div>}</div>{stage === 'burn' && <><div className="charm-flame"/>{Array.from({length:18},(_,i)=><i className="charm-ember" key={i} style={{'--drift':`${Math.sin(i*2.399)*85}px`,'--delay':`${i*.055}s`}}/>)}</>}</div>
     </div>
-    <div className="mystic-result" role="status" aria-live="polite"><h3>{title}</h3><p>{definition ? definition.description : !ritual ? 'Nhiều Xu gọi bùa quý hơn, nhưng khiến cán cân khó đứng yên hơn. Cân lệch sẽ mất toàn bộ số Xu đã đặt.' : stage === 'done' && !ritual.balanced ? 'Có thể cân lại vào lần ghé tiếp theo.' : 'Mỗi lần ghé chỉ được thử một lần.'}</p>{stage === 'done' && ritual?.balanced && <small>{ritual.item === 'hungerCurse' ? 'Lời nguyền đã kích hoạt.' : 'Ấn phép đã vào túi đồ I. Dùng vật phẩm để kích hoạt.'}</small>}</div>
-    <div className="charm-offering"><label htmlFor="charm-coins">Số Xu đặt lên cân <strong>{coins} Xu</strong></label><input id="charm-coins" aria-label="Số Xu đặt lên cân" type="range" min={MIN_OFFERING} max={MAX_OFFERING} step="1" value={coins} disabled={!!busy || !!ritual} onChange={e => setOffering(Number(e.target.value))}/><div className="charm-estimates"><span>Giữ cân <b>{odds.balanced.toFixed(1)}%</b></span><span>Thực nhận bùa VIP <b>{odds.vip.toFixed(1)}%</b></span></div></div>
-    <button className="button primary full mystic-stake" disabled={!available || spent || !!busy || state.gold < offering} onClick={weigh}>{busy ? 'Đang cân số phận…' : spent ? `Lần cân tới: ngày ${nextMerchantDay(state.day)}` : `Đặt ${offering} Xu lên cân`}</button>
+    <div className="mystic-result" role="status" aria-live="polite"><h3>{title}</h3><p>{definition ? definition.description : !ritual ? CHARMS[target].description : stage === 'done' && !ritual.balanced ? 'Có thể cân lại vào lần ghé tiếp theo.' : 'Mỗi lần ghé chỉ được thử một lần.'}</p>{stage === 'done' && ritual?.balanced && <small>{ritual.item === 'hungerCurse' ? 'Lời nguyền đã kích hoạt.' : 'Ấn phép đã vào túi đồ I. Dùng vật phẩm để kích hoạt.'}</small>}</div>
+    <div className="charm-offering"><label htmlFor="charm-target">Chọn loại vé bùa <strong>{coins} Xu / lượt</strong></label>{offer ? <select id="charm-target" aria-label="Loại bùa muốn thử" value={target} disabled={!!busy || !!ritual} onChange={e => setSelected(e.target.value)}>{charmOffers(state.day).map(row => <option key={row.id} value={row.id}>{CHARMS[row.id].name}{charmGrade(row.id) === 2 ? ' · VIP' : ''} — {row.price} Xu · {(row.chance * 100).toFixed(0)}% nhận</option>)}</select> : <p>Lượt cân cũ đang được hoàn tất.</p>}<div className="charm-estimates"><span>Nhận đúng bùa đã chọn <b>{(chance*100).toFixed(0)}%</b></span><span>Cân lệch <b>{((1-chance)*100).toFixed(0)}%</b></span></div></div>
+    <button className="button primary full mystic-stake" disabled={!available || spent || !!busy || !offer || state.gold < offer.price} onClick={weigh}>{busy ? 'Đang cân số phận…' : spent ? `Lần cân tới: ngày ${nextMerchantDay(state.day)}` : `Thử ${CHARMS[target].name} · ${coins} Xu`}</button>
     {!available && <p className="mystic-note">Thương nhân chỉ ghé ban ngày của ngày 1, 3, 5…</p>}
-    <p className="mystic-note">Lệch: {(100-odds.balanced).toFixed(1)}% · Kết quả và số Xu được lưu ngay khi đặt.</p>
-    <details className="charm-odds"><summary>Tỉ lệ nhận bùa và quy luật của cân</summary><p>Mỗi Xu tăng năng lượng gọi bùa: bùa hiếm được thêm trọng số 8%/Xu, bùa VIP thêm 35%/Xu so với mức đặt 1 Xu. Trọng số Bùa Lợi Tức giảm từ 8 xuống 2 theo số ngày sống sót.</p><p>Biên dao động = 1,25 + 0,055 × (Xu − 1) + 0,13 × độ hiếm (0/1/2). Cân rút độ lệch ngẫu nhiên đều trong ±biên; chỉ giữ được khi độ lệch không quá 1. Tỉ lệ thực nhận dưới đây đã tính cả nguy cơ cân lệch.</p><div>{charmOdds(state.day,coins).map(({id,receiveChance})=><article key={id}><ItemArt item={id} size={46}/><span><strong>{CHARMS[id].name}{charmGrade(id) === 2 ? ' · VIP' : ''}</strong><small>{CHARMS[id].description}</small></span><b>{receiveChance.toFixed(1)}%</b></article>)}</div></details>
+    <p className="mystic-note">Giá là phí thử vận may. Cân lệch sẽ mất {coins} Xu. Kết quả được lưu ngay khi trả Xu.</p>
+    <details className="charm-odds"><summary>Giá vé bùa và quy luật của cân</summary><p>Bùa thường có vé rẻ và tỉ lệ nhận cao. Bùa VIP có vé đắt hơn và khó nhận hơn. Thành công sẽ nhận đúng loại đã chọn.</p><p>Cân rút độ lệch đều trong ±(1 / tỉ lệ nhận). Chỉ giữ được khi |độ lệch| ≤ 1. Lợi Tức giảm 2 điểm phần trăm sau mỗi 5 ngày, tối thiểu 8%.</p><div>{charmOffers(state.day).map(({id,price,chance:rate})=><article key={id}><ItemArt item={id} size={46}/><span><strong>{CHARMS[id].name}{charmGrade(id) === 2 ? ' · VIP' : ''}</strong><small>{price} Xu / lượt · {CHARMS[id].description}</small></span><b>{(rate*100).toFixed(0)}%</b></article>)}</div></details>
   </section>;
 }

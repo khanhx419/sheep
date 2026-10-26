@@ -1,6 +1,6 @@
 import { ITEMS, WOLVES, spawnWolves, evolveWolf, absorbDamage, calculateStrike } from './catalog.js';
 import { inMeadowPatch } from './worldMath.js';
-import { CHARMS, MIN_OFFERING, MAX_OFFERING, BOMB_DAMAGE, drawCharm, balanceDrift } from './charms.js';
+import { CHARMS, MIN_OFFERING, MAX_OFFERING, BOMB_DAMAGE, charmOffer } from './charms.js';
 export const SAVE_KEY = 'under-the-wool-v3';
 export const SHEEP_NAMES = ['Bông', 'Mây', 'Sữa', 'Bắp', 'Mochi', 'Mè', 'Kem', 'Đậu'];
 export const TELLS = ['eyes', 'paws', 'teeth', 'body', 'tail'];
@@ -100,9 +100,10 @@ function reduce(state, action) {
   switch (action.type) {
     case 'NEW': return newGame();
     case 'WEIGH_CHARM': {
-      if (!merchantAvailable(state) || !Number.isInteger(action.coins) || action.coins < MIN_OFFERING || action.coins > MAX_OFFERING || state.gold < action.coins || state.magic.lastWeighedDay === state.day || state.magic.ritual && !state.magic.ritual.claimed || ![action.balanceRoll, action.charmRoll].every(value => Number.isFinite(value) && value >= 0 && value < 1)) return state;
-      const sequence = state.magic.sequence + 1, item = drawCharm(state.day, action.charmRoll, action.coins), drift = balanceDrift(action.coins, item), delta = (action.balanceRoll * 2 - 1) * drift, balanced = Math.abs(delta) <= 1;
-      return { ...state, gold: state.gold - action.coins, magic: { ...state.magic, sequence, lastWeighedDay: state.day, ritual: { id: `scale-${state.day}-${sequence}`, day: state.day, coins: action.coins, delta, balanced, item, claimed: false } }, report: `Đã đặt ${action.coins} Xu lên cân. Số phận của lá bùa đã được định.` };
+      const offer = charmOffer(state.day, action.item);
+      if (!offer || !merchantAvailable(state) || state.gold < offer.price || state.magic.lastWeighedDay === state.day || state.magic.ritual && !state.magic.ritual.claimed || !Number.isFinite(action.balanceRoll) || action.balanceRoll < 0 || action.balanceRoll >= 1) return state;
+      const sequence = state.magic.sequence + 1, delta = (action.balanceRoll * 2 - 1) / offer.chance, balanced = Math.abs(delta) <= 1;
+      return { ...state, gold: state.gold - offer.price, magic: { ...state.magic, sequence, lastWeighedDay: state.day, ritual: { id: `scale-${state.day}-${sequence}`, model: 'target-v1', day: state.day, coins: offer.price, chance: offer.chance, delta, balanced, item: offer.id, claimed: false } }, report: `Đã mua lượt cân ${CHARMS[offer.id].name} với ${offer.price} Xu. Kết quả đã được niêm phong.` };
     }
     case 'RESOLVE_CHARM': return action.id === state.magic.ritual?.id ? settleRitual(state) : state;
     case 'DIFFICULTY': return ['easy', 'normal', 'hard'].includes(action.value) && state.phase !== 'combat' ? { ...state, difficulty: action.value } : state;
@@ -275,6 +276,7 @@ export function readSave(storage = localStorage) {
     if (s.magic && (!Number.isInteger(s.magic.sequence) || s.magic.sequence < 0 || !Number.isInteger(s.magic.lastWeighedDay) || s.magic.lastWeighedDay < 0 || s.magic.lastWeighedDay > s.day)) return null;
     const ritual = s.magic?.ritual;
     if (ritual && (typeof ritual.id !== 'string' || !Number.isInteger(ritual.day) || ritual.day < 1 || ritual.day > s.day || !Number.isInteger(ritual.coins) || ritual.coins < MIN_OFFERING || ritual.coins > MAX_OFFERING || !Number.isFinite(ritual.delta) || !CHARMS[ritual.item] || typeof ritual.balanced !== 'boolean' || typeof ritual.claimed !== 'boolean' || ritual.balanced !== (Math.abs(ritual.delta) <= 1))) return null;
+    if (ritual?.model === 'target-v1' && (!charmOffer(ritual.day, ritual.item) || !Number.isFinite(ritual.chance) || ritual.chance <= 0 || ritual.chance >= 1)) return null;
     if (s.player.speedBuff != null && ![1, 1.35].includes(s.player.speedBuff) || s.player.charmDamageBuff != null && ![1, 1.3].includes(s.player.charmDamageBuff) || s.player.wardCharges != null && ![0, 1].includes(s.player.wardCharges) || s.farm.incomeMultiplier != null && ![1, 1.5].includes(s.farm.incomeMultiplier)) return null;
     if (s.combat?.pendingBomb != null && (!Number.isInteger(s.combat.pendingBomb) || s.combat.pendingBomb < 1 || s.combat.pendingBomb > s.combat.charmSequence)) return null;
     if (s.residents.some(a => !a || typeof a.id !== 'string' || !Array.isArray(a.checked) || (a.wolf && (!WOLVES[a.type] || !Array.isArray(a.tells))))) return null;
