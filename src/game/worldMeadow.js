@@ -1,11 +1,12 @@
 import * as T from 'three';
 import { MEADOW_PATCHES, MEADOW_FENCES } from './worldMath.js';
+import { curvedGrassGeometry, wildflowerGeometry } from './worldPlanting.js';
 
 export function createMeadow(scene) {
   const root = new T.Group(); root.name = 'Đồng cỏ phía đông'; scene.add(root);
   const geometries = [], materials = [], textures = [], clock = { value: 0 };
   const geometry = g => (geometries.push(g), g), material = m => (materials.push(m), m);
-  const box = geometry(new T.BoxGeometry(1, 1, 1)), sphere = geometry(new T.SphereGeometry(1, 8, 6));
+  const box = geometry(new T.BoxGeometry(1, 1, 1));
   const wood = material(new T.MeshStandardMaterial({ color: 0x9f8156, roughness: .95 }));
   const straw = material(new T.MeshStandardMaterial({ color: 0xbaa66c, roughness: 1 }));
   function cube(parent, mat, x, y, z, sx, sy, sz) { const m = new T.Mesh(box, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = m.receiveShadow = true; parent.add(m); return m; }
@@ -29,22 +30,22 @@ export function createMeadow(scene) {
     const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace; textures.push(texture);
     const mat = material(new T.MeshBasicMaterial({ map: texture, side: T.DoubleSide })); cube(sign, mat, 0, 1.4, -.071, 1.75, .65, .01); cube(sign, mat, 0, 1.4, .071, 1.75, .65, .01);
   }
-  const blade = geometry(new T.BufferGeometry()); blade.setAttribute('position', new T.Float32BufferAttribute([-.065, 0, 0, .065, 0, 0, .025, 1, .025], 3)); blade.computeVertexNormals();
-  const grass = material(new T.MeshStandardMaterial({ color: 0xffffff, side: T.DoubleSide, roughness: 1 }));
+  const blade = geometry(curvedGrassGeometry());
+  const grass = material(new T.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, side: T.DoubleSide, roughness: 1 }));
   grass.onBeforeCompile = shader => { shader.uniforms.meadowTime = clock; shader.vertexShader = 'uniform float meadowTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed.x += sin(meadowTime*1.8 + instanceMatrix[3].x*2.1 + instanceMatrix[3].z)*.12*position.y*position.y;'); };
-  const flowerMat = material(new T.MeshStandardMaterial({ color: 0xe9dfb2, roughness: 1 }));
+  const flowerMat = material(new T.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, side: T.DoubleSide, roughness: 1 })), flowerGeometry = geometry(wildflowerGeometry());
   const patches = MEADOW_PATCHES.map((patch, index) => {
     const group = new T.Group(); group.position.set(patch.x, .04, patch.z); root.add(group);
-    const blades = new T.InstancedMesh(blade, grass, 950); blades.receiveShadow = true; blades.frustumCulled = false;
+    const blades = new T.InstancedMesh(blade, grass, 1500); blades.receiveShadow = true; blades.frustumCulled = false;
     const tint = new T.Color();
     for (let i = 0; i < blades.count; i++) {
       const x = Math.sin(i * 127.1 + index * 13) * (patch.w / 2 - .1), z = Math.sin(i * 311.7) * (patch.d / 2 - .1);
-      matrix.position.set(x, 0, z); matrix.rotation.set(0, i * 2.399, Math.sin(i) * .13); matrix.scale.set(.8 + i % 4 * .18, .42 + i % 7 * .065, 1); matrix.updateMatrix(); blades.setMatrixAt(i, matrix.matrix);
+      matrix.position.set(x, 0, z); matrix.rotation.set(0, i * 2.399, Math.sin(i) * .1); matrix.scale.set(.7 + i % 4 * .15, .32 + i % 7 * .045, 1); matrix.updateMatrix(); blades.setMatrixAt(i, matrix.matrix);
       tint.set([0x809957, 0x92a65b, 0x57794a, 0xa1ae61, 0x6f914d][i % 5]); blades.setColorAt(i, tint);
     }
     group.add(blades);
-    const flowers = new T.InstancedMesh(sphere, flowerMat, 40);
-    for (let i = 0; i < 40; i++) { matrix.position.set(Math.sin(i * 9.1) * (patch.w / 2 - .25), .5 + i % 3 * .07, Math.cos(i * 8.4) * (patch.d / 2 - .25)); matrix.rotation.set(0, 0, 0); matrix.scale.set(.07, .025, .07); matrix.updateMatrix(); flowers.setMatrixAt(i, matrix.matrix); } group.add(flowers);
+    const flowers = new T.InstancedMesh(flowerGeometry, flowerMat, 40);
+    for (let i = 0; i < 40; i++) { matrix.position.set(Math.sin(i * 9.1) * (patch.w / 2 - .25), 0, Math.cos(i * 8.4) * (patch.d / 2 - .25)); matrix.rotation.set(0, i * 2.399, 0); matrix.scale.setScalar(.8 + i % 3 * .12); matrix.updateMatrix(); flowers.setMatrixAt(i, matrix.matrix); } group.add(flowers);
     return group;
   });
   const clippings = new T.InstancedMesh(blade, grass, 24); clippings.frustumCulled = false; clippings.visible = false; root.add(clippings);

@@ -20,7 +20,7 @@ Game 3D hoạt hình góc nhìn thứ nhất bằng React, Three.js và Canvas. 
 
 Cảnh đồng quê bao quanh 360° gồm mặt đất nối liền, ruộng ngũ cốc theo luống, đường quê uốn vào rừng, vườn cây, bìa rừng gần bao quanh phía sau và hai bên, rừng xa cùng hai lớp đồi ở chân trời; cảnh bao quanh không có nhà hàng xóm hay cột điện. Khu chơi vẫn giới hạn bởi hàng rào trại; cảnh xa đổi màu theo ngày đêm và thời tiết. Cừu có hoạt ảnh thở, ăn cỏ, nhai, nhìn quanh, chớp mắt, giật tai và đổi chân; khi soi, chuyển động giảm để giữ dấu hiệu dễ quan sát. Shiba ngồi cạnh chuồng, quay đầu, vẫy đuôi, ngáp và có biểu cảm báo sói. Mái bạt, tán cây và ngũ cốc lay theo gió; người bán chào khi đến gần, đèn lồng đung đưa, khói bếp trôi, chim và bướm xuất hiện ban ngày, đom đóm ban đêm. `dev/scenery.html` là màn xem hình ảnh độc lập, không truy cập bản lưu.
 
-Đồ họa: cừu có lông mềm, chớp mắt và cử động tai; chuồng có sàn ván, cửa sổ, xà gỗ và đèn lồng. Sân ngoài có đường đá, nhà nhỏ, giếng, bãi cỏ thu hoạch riêng và quầy hàng 3D. Ban ngày ra khỏi cửa chuồng, đến quầy bên phải và nhấn E để mua đồ; Tab vẫn mở quản lý trại. Các vật phẩm có hình minh họa riêng trong cửa hàng và túi đồ.
+Đồ họa: cừu có lông mềm, chớp mắt và cử động tai; chuồng có sàn ván, cửa sổ, xà gỗ và đèn lồng. Sân ngoài có đường đá, nhà nhỏ, giếng, bãi cỏ thu hoạch riêng và quầy hàng 3D. Cỏ sân dùng lá cong thấp, các cụm lá và hoa nhỏ ven rào thay cho bụi tròn và cỏ khối nhọn; cỏ thu hoạch cũng dùng phiến cong và hoa có thân. Ban ngày ra khỏi cửa chuồng, đến quầy bên phải và nhấn E để mua đồ; Tab vẫn mở quản lý trại. Các vật phẩm có hình minh họa riêng trong cửa hàng và túi đồ.
 
 Khi phát hiện sói, trận đấu chuyển sang đấu trường 3D với sói đúng loài và các vùng báo chiêu. Người chơi di chuyển, né, đỡ và phản đòn trực tiếp. Cảnh chuồng tạm ngừng render khi đang ở trận đấu để tránh chạy hai cảnh 3D cùng lúc.
 
@@ -28,11 +28,11 @@ Khi phát hiện sói, trận đấu chuyển sang đấu trường 3D với só
 
 Chuồng hiện dùng chung một đàn, không chia A/B. Bản mới bắt đầu với rào tạm và sức chứa 8 cừu. Trong mục sinh hoạt, mỗi ngày chọn một việc xây dựng: gia cố rào (3 cấp), mở rộng chuồng (8 → 12 → 16 chỗ) hoặc lắp mái. Việc xây dựng tốn xu và không tự lặp mỗi lần bấm. Bản lưu cũ có đàn lớn giữ đủ sức chứa và chuyển cừu về chuồng chung.
 
-Quầy nông trại bán cả đồ dùng lẫn trang bị mỗi ban ngày, không phụ thuộc thương nhân lang thang. Rìu thép tăng 35% sát thương nông cụ; súng săn cần mua để mở khóa, kèm 3 viên đạn; giáp nhẹ/nặng tăng 10%/20% sát thương khi còn độ bền. Giáp vỡ vẫn có thể sửa, sau đó nhận lại chỉ số tăng sát thương.
+Thương nhân ghé trại cách hai ngày một lần, vào ban ngày của ngày 1, 3, 5… và bán cả đồ dùng lẫn trang bị. Ngày nghỉ hoặc ban đêm, người bán, gian hàng, hành lý, điểm tương tác và va chạm đều được gỡ; không thể mua qua menu. Rìu thép tăng 35% sát thương nông cụ; súng săn cần mua để mở khóa, kèm 3 viên đạn; giáp nhẹ/nặng tăng 10%/20% sát thương khi còn độ bền. Giáp vỡ vẫn có thể sửa, sau đó nhận lại chỉ số tăng sát thương.
 
 Vòng sinh hoạt: ban ngày mở cửa chuồng (E ở cửa hoặc Tab), đàn ra bãi phía tây. Người chơi đi qua sân tới bãi cỏ phía đông để cắt cỏ dự trữ trực tiếp khi trời khô. Hai luống được theo dõi riêng, mỗi luống chỉ cắt một lần/ngày. Cỏ mọc lại sáng hôm sau. Dùng búp bê cầu nắng trong túi đồ để bảo đảm ngày mai có thể phơi cỏ.
 
-Nhà phía tây nam có cửa mở và giường; E gần giường mở sinh hoạt/ngủ. Chọn ngủ và xác nhận để qua sáng hôm sau: sói vẫn ăn cừu, kể cả khi bỏ qua đêm từ ban ngày. Kho phía cạnh nhà có các bó cỏ hiển thị theo tồn kho. Quầy ở sân mở ban ngày; ban đêm người bán nghỉ và điểm E ghi rõ quầy đóng. Bản lưu cũ được bổ sung dụng cụ tông đơ và dữ liệu sinh hoạt, giữ nguyên tiền và đàn.
+Nhà phía tây nam có cửa mở và giường; E gần giường mở sinh hoạt/ngủ. Chọn ngủ và xác nhận để qua sáng hôm sau: sói vẫn ăn cừu, kể cả khi bỏ qua đêm từ ban ngày. Kho phía cạnh nhà có các bó cỏ hiển thị theo tồn kho. Quầy chỉ xuất hiện vào ban ngày khi thương nhân ghé; lịch lần tới được ghi trong sinh hoạt. Bản lưu cũ được bổ sung dụng cụ tông đơ và dữ liệu sinh hoạt, giữ nguyên tiền và đàn.
 
 ```sh
 npm ci

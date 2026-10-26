@@ -6,8 +6,22 @@ import { createAtmosphere } from './worldAtmosphere.js';
 import { createMeadow } from './worldMeadow.js';
 import { createCountryside, countrysideHeight } from './worldCountryside.js';
 import { createFarmAmbience } from './worldAmbience.js';
+import { createFarmPlanting, curvedGrassGeometry } from './worldPlanting.js';
 import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
 import { animateWolf, fitCombatCamera, faceCombatActor } from './combatAnimation.js';
+
+test('garden planting uses curved blades and leaf clumps with shared disposable geometry', () => {
+  const blade = curvedGrassGeometry(), points = blade.getAttribute('position');
+  assert.ok(points.count > 3 && points.count < 100, 'grass has a bent segmented silhouette');
+  assert.ok([...points.array].every(Number.isFinite)); blade.dispose();
+  const scene = new T.Scene(), plants = createFarmPlanting(scene);
+  assert.equal(plants.root.children.length, 3);
+  const geometrySet = new Set(), materialSet = new Set();
+  plants.root.traverse(mesh => { if (!mesh.isMesh) return; assert.equal(mesh.isInstancedMesh, true); geometrySet.add(mesh.geometry); materialSet.add(mesh.material); assert.ok([...mesh.geometry.attributes.position.array].every(Number.isFinite)); });
+  let geometries = 0, materials = 0; geometrySet.forEach(g => g.addEventListener('dispose', () => geometries++)); materialSet.forEach(m => m.addEventListener('dispose', () => materials++));
+  plants.update(12); plants.update(NaN); plants.dispose(); plants.dispose();
+  assert.equal(scene.children.length, 0); assert.equal(geometries, geometrySet.size); assert.equal(materials, materialSet.size);
+});
 
 test('farmer remains upright when facing behind himself during hit and dodge reactions', () => {
   const kit = createModelKit(), actor = kit.farmer();

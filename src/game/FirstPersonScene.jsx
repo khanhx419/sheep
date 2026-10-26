@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { createModelKit } from './worldModels.js';
 import { createAtmosphere } from './worldAtmosphere.js';
-import { canStand, movePlayer, movementVector, interactionTarget, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, DIVIDER_WALLS, WALLS, OUTDOOR_WALLS, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch } from './worldMath.js';
+import { canStand, movePlayer, movementVector, interactionTarget, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, DIVIDER_WALLS, WALLS, OUTDOOR_WALLS, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch, outdoorWallsFor, SHOP_FOOTPRINT } from './worldMath.js';
 import { Icon } from './ui.jsx';
 import { sound, unlockAudio } from './audio.js';
 import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
@@ -53,7 +53,8 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     const direction = new T.Vector3(), desiredPosition = new T.Vector3(), desiredLook = new T.Vector3();
     const world = { camera, animalMap, keys, torchOn: true, yaw: 0, pitch: -0.12, active: false, dragging: false, touchForward: 0, touchStrafe: 0, lastTarget: null, inspection: null };
     engine.current = world;
-    const walls = () => [...WALLS, ...OUTDOOR_WALLS, { x: 0, z: -5.425 - (props.current.farm.expansion || 0) * 2.2375, w: 16, d: .16 }];
+    const shopVisible = () => !!props.current.merchantPresent && !props.current.night;
+    const walls = () => [...WALLS, ...outdoorWallsFor(shopVisible()), { x: 0, z: -5.425 - (props.current.farm.expansion || 0) * 2.2375, w: 16, d: .16 }];
     const npcWalls = () => props.current.merchantPresent && !props.current.night ? [{ x: -4, z: 12.5, w: 0.8, d: 0.8 }] : [];
     function cancelHarvest() { if (world.harvest) { world.harvest = null; setHarvesting(null); } }
     function clearInput() { keys.clear(); world.dragging = false; world.touchForward = 0; world.touchStrafe = 0; cancelHarvest(); }
@@ -90,7 +91,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       camera.getWorldDirection(direction);
       const candidates = [...animalMap.values()].map(o => ({ position: o.position, animal: o.userData.animal, height: o.userData.animal.age === 'baby' ? 0.7 : 1 }));
       if (props.current.merchantPresent && !props.current.night) candidates.push({ position: meta.merchant.position, height: 1.3, animal: { id: 'merchant', name: 'Thương nhân lang thang', merchant: true } });
-      candidates.push({ position: meta.shop.position, interactionObstacle: OUTDOOR_WALLS.find(o => o.x === 4 && o.z === 12.7), height: 1.6, animal: { id: 'farm-shop', name: props.current.night ? 'Quầy đã đóng · Ngủ đến sáng để mua' : 'Người bán · Mở cửa hàng', shop: true, merchant: true } });
+      if (shopVisible()) candidates.push({ position: meta.shop.position, interactionObstacle: SHOP_FOOTPRINT, height: 1.6, animal: { id: 'farm-shop', name: 'Người bán · Mở cửa hàng', shop: true, merchant: true } });
       candidates.push({ position: { x: -15.5, z: 16 }, height: .8, animal: { id: 'bed', name: 'Giường · Nghỉ ngơi', activity: 'home' } });
       candidates.push({ position: { x: -4, z: 9.5 }, interactionObstacle: OUTDOOR_WALLS.find(o => o.x === -4 && o.z === 9.5), height: 2, animal: { id: 'guide-board', name: 'Biển hướng dẫn', activity: 'guide' } });
       if (props.current.night) candidates.push({ position: shiba.position, height: .6, animal: { id: 'shiba', name: props.current.farm.dogReady ? 'Shiba · Kiểm tra chuồng (nghỉ hết đêm)' : props.current.farm.dogScan?.danger ? 'Shiba báo có sói · Nghỉ đến sáng' : 'Shiba không tìm thấy mùi sói · Nghỉ đến sáng', action: props.current.farm.dogReady ? 'DOG_SCAN' : 'DOG_STATUS' } });
@@ -128,7 +129,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       if (aim.animal.action) { requestAction(aim.animal.action, { patch: aim.animal.patch }); return; }
       release();
       if (aim.animal.activity) props.current.onMenu?.(aim.animal.activity);
-      else if (aim.animal.shop) { if (props.current.night) setHint('Quầy đóng cửa vào ban đêm.'); else props.current.onMenu?.('shop'); }
+      else if (aim.animal.shop) { if (shopVisible()) props.current.onMenu?.('shop'); }
       else if (aim.animal.merchant) props.current.onMerchant?.(); else props.current.onSelect(aim.animal.id);
     }
     function keyDown(event) {
@@ -206,6 +207,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       atmosphere.update(visualTime, nightBlend, rainBlend);
       scene.userData.countryside.update(visualTime, nightBlend, rainBlend);
       scene.userData.ambience.update(visualTime, { night: current.night, rainy: current.farm.weather === 'rainy' });
+      scene.userData.planting.update(visualTime);
       scene.fog.color.copy(daylightFog).lerp(rainyFog, rainBlend * .75).lerp(moonlightFog, nightBlend);
       scene.fog.near = T.MathUtils.lerp(55 - rainBlend * 25, 14, nightBlend);
       scene.fog.far = T.MathUtils.lerp(200 - rainBlend * 100, 115, nightBlend);
@@ -231,6 +233,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       scene.userData.roofCover.visible = !!current.farm.roof;
       meta.fenceStages.forEach((fence, level) => { fence.visible = level === (current.farm.fenceLevel || 0); fence.scale.z = .75 + (current.farm.expansion || 0) * .125; fence.position.z = 8 * (1 - fence.scale.z); });
       meta.merchant.visible = !!current.merchantPresent && !current.night;
+      meta.shop.visible = shopVisible(); scene.userData.shopCrates.visible = shopVisible();
       meta.merchant.userData.head.position.y = 1.8 + Math.sin(visualTime * 1.6) * .009;
       meta.merchant.userData.head.rotation.y = Math.sin(visualTime * .35) * .12;
       meta.merchant.userData.lantern.rotation.z = Math.sin(visualTime * 1.5) * .065;

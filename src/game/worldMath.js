@@ -2,6 +2,7 @@ export const WORLD_LIMIT = 23;
 export const PLAYER_RADIUS = 0.32;
 export const DOG_HOME = { x: -9.6, z: 9.4, w: 1.9, d: 1.8 };
 export const DOG_SEAT = { x: DOG_HOME.x, z: DOG_HOME.z + 1.55 };
+export const SHOP_FOOTPRINT = { x: 4, z: 12.7, w: 2.9, d: 1.3, temporary: 'shop' };
 export const MEADOW_PATCHES = [{ x: 12.2, z: 14.5, w: 3.4, d: 6.4 }, { x: 16.2, z: 14.5, w: 3.4, d: 6.4 }];
 export const MEADOW_FENCES = [{ x: 18.4, z: 14.5, w: .12, d: 8.6 }, { x: 14.2, z: 10.2, w: 8.4, d: .12 }, { x: 14.2, z: 18.8, w: 8.4, d: .12 }, { x: 10, z: 10.5, w: .12, d: .6 }, { x: 10, z: 16.1, w: .12, d: 5.4 }];
 export function inMeadowPatch(position, index) {
@@ -18,10 +19,11 @@ export const OUTDOOR_WALLS = [
   { x: -16.5, z: 17.5, w: 1.25, d: 2.1 },
   { x: -12, z: 7, w: 2.6, d: 2.6 },
   { x: 10.5, z: 8, w: 2.9, d: 1 },
-  { x: 7.2, z: 14.8, w: 1, d: 1 },
-  { x: 4, z: 12.7, w: 2.9, d: 1.3 },
+  { x: 7.2, z: 14.8, w: 1, d: 1, temporary: 'shop' },
+  SHOP_FOOTPRINT,
   { x: -8.5, z: 18.6, w: 2, d: 1.3 },
 ];
+export function outdoorWallsFor(shopPresent = true) { return shopPresent ? OUTDOOR_WALLS : OUTDOOR_WALLS.filter(wall => wall.temporary !== 'shop'); }
 export function gameKey(event) {
   if (/^Key[A-Z]$/.test(event.code || '') || /^(Arrow|Shift|Control)/.test(event.code || '') || ['Escape', 'Space', 'Tab', 'Backspace', 'Delete'].includes(event.code)) return event.code;
   // IMEs can change key/which to Process/229 while code still identifies the

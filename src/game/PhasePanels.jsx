@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect, useRef } from 'react';
 import { ITEMS, WOLVES } from './catalog.js';
-import { dogAvailable } from './rules.js';
+import { dogAvailable, merchantAvailable, nextMerchantDay } from './rules.js';
 import { Icon, Modal } from './ui.jsx';
 import { sound } from './audio.js';
 import ItemArt from './ItemArt.jsx';
@@ -9,6 +9,7 @@ export function FarmDayPhase({ state, dispatch, initialShop = 'basic' }) {
   const [shop, setShop] = useState(initialShop);
   const list = useRef(null);
   useLayoutEffect(() => { if (list.current) list.current.scrollTop = 0; }, [shop]);
+  if (!merchantAvailable(state)) return <div className="gdd-day-panel"><h2>Thương nhân đã rời trại.</h2><p>Ông ấy ghé vào ban ngày, cách hai ngày một lần: ngày 1, 3, 5… Lần tới: ngày {nextMerchantDay(state.day)}.</p></div>;
   return <div className="gdd-day-panel shop-only"><div className="section-heading"><span>CỬA HÀNG BAN NGÀY · {state.gold} xu</span><Icon name="sun" size={16} /></div>
     <div className="shop-tabs"><button className={shop === 'basic' ? 'active' : ''} onClick={() => setShop('basic')}>Đồ dùng & đàn cừu</button><button className={shop === 'merchant' ? 'active' : ''} onClick={() => setShop('merchant')}>Vũ khí & giáp</button></div>
     {<div className="shop-scroll" ref={list}>{Object.values(ITEMS).filter(i => i.shop === shop).map(item => {

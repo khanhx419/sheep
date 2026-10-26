@@ -19,6 +19,7 @@ export default function CombatDiorama({ type, turn, hp, reveal = false }) {
     const camera = new T.PerspectiveCamera(44, 1, 0.1, 100);
     camera.position.set(0, 2.5, 22); camera.lookAt(0, 1.25, 15.5);
     const kit = createModelKit(); kit.environment(scene); const atmosphere = createAtmosphere(scene);
+    scene.userData.shopCrates.visible = false;
     scene.add(new T.HemisphereLight(0xa5c6dc, 0x665e45, 1.9));
     const key = new T.DirectionalLight(0xffd79c, 3); key.position.set(-4, 7, 21); key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024); key.shadow.camera.left = -7; key.shadow.camera.right = 7;
@@ -40,6 +41,7 @@ export default function CombatDiorama({ type, turn, hp, reveal = false }) {
       atmosphere.update(t, true);
       scene.userData.countryside.update(t, true);
       scene.userData.ambience.update(t, { night: true });
+      scene.userData.planting.update(t);
       renderer.render(scene, camera);
     };
     frame = requestAnimationFrame(draw);

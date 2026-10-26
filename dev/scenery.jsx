@@ -16,18 +16,20 @@ const viewpoints = {
   'Đàn cừu': [-15, 1.65, -.5, 0, -.24],
   'Quầy hàng': [4, 1.65, 10, Math.PI, -.1],
   'Shiba': [-8.1, 1.4, 13, .63, -.3],
+  'Cỏ ven rào': [18.8, 1.4, 19.6, -.6, -.3],
 };
 function Scenery() {
-  const controls = useRef(null), [night, setNight] = useState(false), [rainy, setRainy] = useState(false), [view, setView] = useState('Sân trại'), [toolbar, setToolbar] = useState(true);
+  const controls = useRef(null), [night, setNight] = useState(false), [rainy, setRainy] = useState(false), [view, setView] = useState('Sân trại'), [toolbar, setToolbar] = useState(true), [merchantDay, setMerchantDay] = useState(1);
   function visit(name) {
     const world = controls.current, point = viewpoints[name]; if (!world) return;
     world.release(); world.camera.position.set(...point.slice(0, 3)); world.yaw = point[3]; world.pitch = point[4]; setView(name);
   }
-  return <div className="game-app immersive quiet-farm is-playing"><FirstPersonScene animals={farm.flock} night={night} farm={{ ...farm.farm, pastureOpen: true, weather: rainy ? 'rainy' : 'sunny', dogScan: { danger: night } }} paused={false} controlsRef={controls} merchantPresent onSelect={() => {}} />
+  return <div className="game-app immersive quiet-farm is-playing"><FirstPersonScene animals={farm.flock} night={night} farm={{ ...farm.farm, pastureOpen: true, weather: rainy ? 'rainy' : 'sunny', dogScan: { danger: night } }} paused={false} controlsRef={controls} merchantPresent={merchantDay === 1} onSelect={() => {}} />
     {toolbar ? <div style={{ position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 25, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', background: '#193b30ed', color: '#efe4c9', padding: 10, borderRadius: 12, fontSize: 12 }}>
-      <span role="status">{view} · {night ? 'Ban đêm' : 'Ban ngày'} · {rainy ? 'Mưa' : 'Khô ráo'}</span>
+      <span role="status">{view} · {night ? 'Ban đêm' : 'Ban ngày'} · {rainy ? 'Mưa' : 'Khô ráo'} · Ngày {merchantDay}: {merchantDay === 1 ? 'có thương nhân' : 'thương nhân nghỉ'}</span>
       {Object.keys(viewpoints).map(name => <button key={name} onClick={() => visit(name)}>{name}</button>)}
       <button onClick={() => setNight(!night)}>Đổi ngày / đêm</button><button onClick={() => setRainy(!rainy)}>Đổi thời tiết</button>
+      <button onClick={() => setMerchantDay(merchantDay === 1 ? 2 : 1)}>Đổi ngày thương nhân</button>
       <button onClick={() => setToolbar(false)}>Ẩn bảng kiểm thử</button>
     </div> : <button style={{ position: 'absolute', right: 12, bottom: 12, zIndex: 25, opacity: .5 }} onClick={() => setToolbar(true)}>Hiện bảng kiểm thử</button>}
   </div>;

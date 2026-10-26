@@ -1,5 +1,5 @@
 // The same modest palette is shared by buildings, props, and the barn batches.
-export function landscape(scene, { cube, ball, cylinder }) {
+export function landscape(scene, { cube, ball, cylinder, Group }) {
   // The playable farm sits inside a continuous countryside, not on a platform.
   for (let i = 0; i < 3; i++) cube(scene, 0x897856, Math.sin(i * .08) * 6, -.025, 22 + i * 2, 3.8, .05, 2.1);
   // A broad, uneven stone path leads out of the barn to the courtyard gate.
@@ -36,12 +36,6 @@ export function landscape(scene, { cube, ball, cylinder }) {
   for (const x of [-9.6, -7.4]) cube(scene, 0x67543e, x, 1.25, 18.8, .15, 2.5, .15);
   cube(scene, 0x454e4b, -8.5, 2.55, 18.8, 2.8, .15, 2.8);
   cube(scene, 0x96714e, -8.5, .6, 19.7, 2.4, 1.2, .12);
-  // Layered hedgerow makes the hard farm boundary visible before collision.
-  for (let i = 0; i < 28; i++) for (const side of [-1, 1]) {
-    const along = -22 + i * 1.65, height = .32 + (i % 4) * .035;
-    if (side < 0 || Math.abs(along) > 4) ball(scene, i % 3 ? 0x647b70 : 0x799057, along, height, side * 23.5, .95, .42, .7);
-    ball(scene, i % 3 ? 0x647b70 : 0x799057, side * 23.5, height, along, .7, .42, .95);
-  }
   // Stone well; rings have an open centre instead of a solid cylinder.
   for (let row = 0; row < 3; row++) for (let i = 0; i < 12; i++) {
     const a = (i + row % 2 * 0.5) / 12 * Math.PI * 2;
@@ -75,30 +69,14 @@ export function landscape(scene, { cube, ball, cylinder }) {
     }
     ball(scene, 0x617a59, x, 5.15 * scale, z, 1.65 * scale, 1.4 * scale, 1.65 * scale);
   }
-  // Daisies line the field's far edge without growing across harvest patches.
-  for (let i = 0; i < 24; i++) {
-    const x = 19.35 + Math.sin(i * 2.1) * .27, z = 10.7 + i * .33, height = .33 + i % 3 * .07;
-    cylinder(scene, 0x799057, .018, height, x, height / 2, z);
-    ball(scene, i % 4 ? 0xe7d6b7 : 0xc99c51, x, height + .02, z, .09, .035, .09);
-    ball(scene, 0xc99c51, x, height + .045, z, .028, .025, .028);
-  }
-  // Flower islands and bushes frame the walking space instead of blocking it.
-  for (let i = 0; i < 64; i++) {
-    const a = i * 2.399, x = Math.sin(a) * (16 + i % 4), z = Math.cos(a) * (16 + i % 5);
-    if (z < 9 && Math.abs(x) < 9 || x < -10 && z > 13 || x > 9 && z > 11) continue;
-    ball(scene, 0x647b70, x, 0.22, z, 0.45, 0.32, 0.4);
-    if (i % 2) for (let f = 0; f < 3; f++) {
-      cylinder(scene, 0x799057, 0.016, 0.42, x + f * 0.15, 0.4, z);
-      ball(scene, i % 3 ? 0xe7d6b7 : 0xc99c51, x + f * 0.15, 0.63, z, 0.075, 0.045, 0.075);
-    }
-  }
   // A water trough and a stack of supply crates beside the shop.
   cube(scene, 0x67543e, 10.5, 0.38, 8, 2.8, 0.7, 0.9);
   cube(scene, 0x8ebcc1, 10.5, 0.75, 8, 2.5, 0.025, 0.65);
   for (const side of [-1, 1]) cube(scene, 0x9b7d52, 10.5, 0.79, 8 + side * 0.46, 2.9, 0.16, 0.1);
+  const shopCrates = new Group(); scene.add(shopCrates); scene.userData.shopCrates = shopCrates;
   for (let i = 0; i < 3; i++) {
-    cube(scene, 0x96714e, 7.2, 0.4 + i * 0.72, 14.8, 0.9, 0.7, 0.85);
-    for (const y of [-0.2, 0.2]) cube(scene, 0xc2a56a, 7.2, 0.4 + i * 0.72 + y, 15.24, 0.94, 0.06, 0.05);
+    cube(shopCrates, 0x96714e, 7.2, 0.4 + i * 0.72, 14.8, 0.9, 0.7, 0.85);
+    for (const y of [-0.2, 0.2]) cube(shopCrates, 0xc2a56a, 7.2, 0.4 + i * 0.72 + y, 15.24, 0.94, 0.06, 0.05);
   }
 }
 

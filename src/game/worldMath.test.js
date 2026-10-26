@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canStand, movePlayer, movementVector, interactionTarget, hasLineOfSight, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, WALLS, DIVIDER_WALLS, OUTDOOR_WALLS, DOG_HOME, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch } from './worldMath.js';
+import { canStand, movePlayer, movementVector, interactionTarget, hasLineOfSight, gameKey, imeInterruptsGame, releaseGameKey, residentSlot, safeSpawn, WALLS, DIVIDER_WALLS, OUTDOOR_WALLS, DOG_HOME, DOG_SEAT, MEADOW_PATCHES, inMeadowPatch, outdoorWallsFor, SHOP_FOOTPRINT } from './worldMath.js';
+
+test('the absent merchant leaves no invisible stall or crate collision', () => {
+  for (const [x, z] of [[SHOP_FOOTPRINT.x, SHOP_FOOTPRINT.z], [7.2, 14.8]]) {
+    assert.equal(canStand(x, z, [...WALLS, ...outdoorWallsFor(true)]), false);
+    assert.equal(canStand(x, z, [...WALLS, ...outdoorWallsFor(false)]), true);
+  }
+  assert.ok(outdoorWallsFor(false).includes(DOG_HOME), 'only temporary shop objects disappear');
+});
 
 test('both hay plots are reachable on foot through the meadow entrance and surrounding fences block shortcuts', () => {
   const obstacles = [...WALLS, ...OUTDOOR_WALLS];

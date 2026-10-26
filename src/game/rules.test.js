@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceDawn, gameReducer as reduce, makeResidents, newGame, readSave, SAVE_KEY, dogAvailable, overrun, farmAnimals, visibleHerdCount, nextWeather } from './rules.js';
+import { advanceDawn, gameReducer as reduce, makeResidents, newGame, readSave, SAVE_KEY, dogAvailable, overrun, farmAnimals, visibleHerdCount, nextWeather, merchantAvailable, nextMerchantDay } from './rules.js';
 import { MEADOW_PATCHES } from './worldMath.js';
 import { WOLVES, evolveWolf, spawnWolves, absorbDamage, calculateStrike } from './catalog.js';
 import { PATTERN_REGISTRY } from '../canvas/patterns/AttackPatterns.js';
@@ -112,14 +112,33 @@ test('rain needs hay even with a roof and the sunshine doll changes tomorrow wea
   assert.equal(advanceDawn({ ...s, residents: [] }, () => 0).farm.weather, 'sunny');
   assert.equal(reduce({ ...newGame(), farm: { ...newGame().farm, fed: false } }, { type: 'UPGRADE_FARM', item: 'roof' }).farm.fed, false);
 });
-test('one daily construction improves a single shared enclosure and vendor stock stays available', () => {
+test('one daily construction improves a single shared enclosure independently of the vendor', () => {
   let s = reduce(newGame(), { type: 'UPGRADE_FARM', item: 'fence' });
   assert.equal(s.gold, 21); assert.equal(s.farm.divided, false); assert.deepEqual(new Set(s.flock.map(a => a.penId)), new Set([0]));
   assert.equal(reduce(s, { type: 'UPGRADE_FARM', item: 'expand' }).gold, 21);
-  assert.equal(reduce({ ...s, merchant: { present: false } }, { type: 'BUY', item: 'ammo' }).player.ammo, 1);
+  assert.equal(reduce({ ...s, day: 2 }, { type: 'BUY', item: 'ammo' }).player.ammo, 0);
   s = advanceDawn({ ...s, residents: [] }, () => .9);
   s = reduce(s, { type: 'UPGRADE_FARM', item: 'expand' }); assert.equal(s.farm.capacity, 12);
   assert.equal(reduce({ ...s, gold: 0 }, { type: 'UPGRADE_FARM', item: 'roof' }).farm.roof, false);
+});
+
+test('merchant visits every other morning and cannot sell goods on absent days or nights', () => {
+  let state = newGame();
+  for (let day = 1; day <= 10; day++) {
+    assert.equal(state.day, day); assert.equal(state.merchant.present, day % 2 === 1);
+    assert.equal(merchantAvailable(state), day % 2 === 1);
+    assert.equal(nextMerchantDay(day), day % 2 ? day + 2 : day + 1);
+    const bought = reduce(state, { type: 'BUY', item: 'ammo' });
+    assert.equal(bought.player.ammo, state.player.ammo + (day % 2 ? 1 : 0));
+    const night = { ...state, phase: 'night' };
+    assert.equal(merchantAvailable(night), false);
+    assert.equal(reduce(night, { type: 'BUY', item: 'hay' }).gold, state.gold);
+    state = advanceDawn({ ...state, farm: { ...state.farm, fed: true }, residents: [] }, () => day % 2 ? 0 : .99);
+  }
+  const saved = { ...newGame(), day: 2, merchant: { present: true } };
+  const restored = readSave({ getItem: key => key === SAVE_KEY ? JSON.stringify(saved) : null });
+  assert.equal(restored.merchant.present, false, 'old random vendor saves adopt the fixed schedule');
+  assert.equal(restored.gold, saved.gold); assert.deepEqual(restored.flock, saved.flock);
 });
 
 test('weapon purchases unlock guns and armor bonuses stop when durability reaches zero', () => {

@@ -6,6 +6,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { createMeadow } from './worldMeadow.js';
 import { createCountryside } from './worldCountryside.js';
 import { createFarmAmbience } from './worldAmbience.js';
+import { createFarmPlanting } from './worldPlanting.js';
 
 // All game-world art is real geometry, so clues remain visible from every side.
 export function createModelKit() {
@@ -217,15 +218,16 @@ export function createModelKit() {
     for (let i = 0; i < 290; i++) {
       const x = Math.sin(i * 18.13) * 21, z = Math.cos(i * 7.31) * 21;
       if (Math.abs(x) < 7.8 && z < 7.8 && z > -9.5) { const straw = cube(scene, i % 2 ? 0xc2ae7a : 0xa39062, x, 0.061, z, 0.24 + i % 3 * 0.09, 0.012, 0.025); straw.rotation.y = i; }
-      else for (let j = 0; j < 3; j++) { const blade = cube(scene, i % 2 ? 0x799057 : 0x8a9a61, x + j * 0.09, 0.16, z, 0.04, 0.32, 0.08); blade.rotation.z = (j - 1) * 0.35; }
+
     }
     // Bake static set pieces into one mesh per material instead of hundreds
     // of individual draw calls. Dynamic animals remain independently selectable.
-    landscape(scene, { cube, ball, cylinder });
+    landscape(scene, { cube, ball, cylinder, Group: T.Group });
+    bake(scene.userData.shopCrates);
     bake(scene);
-    const countryside = createCountryside(scene), ambience = createFarmAmbience(scene);
-    scene.userData.countryside = countryside; scene.userData.ambience = ambience;
-    extraDisposers.push(() => countryside.dispose(), () => ambience.dispose());
+    const countryside = createCountryside(scene), ambience = createFarmAmbience(scene), planting = createFarmPlanting(scene);
+    scene.userData.countryside = countryside; scene.userData.ambience = ambience; scene.userData.planting = planting;
+    extraDisposers.push(() => countryside.dispose(), () => ambience.dispose(), () => planting.dispose());
   }
   function wolf(type = 'normal') {
     const group = new T.Group(), head = new T.Group(); head.position.set(0, 1.75, 0.22); group.add(head);
@@ -313,7 +315,7 @@ export function createModelKit() {
       c.strokeStyle = '#947b50'; c.lineWidth = 9; c.strokeRect(18, 18, 988, 604);
       c.fillStyle = '#314c40'; c.font = 'bold 48px Georgia'; c.fillText('SỔ TAY TRẠI SƯƠNG', 65, 90);
       c.font = '28px sans-serif';
-      ['WASD: đi lại · chuột: nhìn · Ctrl phải: mở chuột', 'E: tương tác khi đến gần · F: đèn · Esc: cài đặt', 'Ban ngày: cho ăn · ra đồng phía đông cắt cỏ.', 'Mưa: dùng cỏ khô trong kho hoặc mua ở quầy.', 'Giường trong nhà: nghỉ đến tối / ngủ đến sáng.', 'Ban đêm: soi cừu, kiểm tra dấu hiệu của sói.', 'Chiến đấu: J đánh · K đỡ · Space né · WASD chạy.', 'Shiba kiểm tra chuồng: nghỉ tới sáng, không đánh.', 'Tab: sinh hoạt · I: túi đồ · H: gọi Shiba kiểm tra.'].forEach((line, i) => c.fillText(line, 60, 157 + i * 49));
+      ['WASD: đi lại · chuột: nhìn · Ctrl phải: mở chuột', 'E: tương tác khi đến gần · F: đèn · Esc: cài đặt', 'Ban ngày: cho ăn · ra đồng phía đông cắt cỏ.', 'Thương nhân: ngày 1, 3, 5… Dự trữ cỏ khi mưa.', 'Giường trong nhà: nghỉ đến tối / ngủ đến sáng.', 'Ban đêm: soi cừu, kiểm tra dấu hiệu của sói.', 'Chiến đấu: J đánh · K đỡ · Space né · WASD chạy.', 'Shiba kiểm tra chuồng: nghỉ tới sáng, không đánh.', 'Tab: sinh hoạt · I: túi đồ · H: gọi Shiba kiểm tra.'].forEach((line, i) => c.fillText(line, 60, 157 + i * 49));
       const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace; textures.add(texture);
       const material = new T.MeshBasicMaterial({ map: texture, side: T.DoubleSide }); materials.add(material);
       mesh(sign, box, material, 0, 2.45, .11, 4.3, 2.55, .015);

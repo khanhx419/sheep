@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { visibleHerdCount } from './rules.js';
+import { visibleHerdCount, merchantAvailable, nextMerchantDay } from './rules.js';
 export default function FarmActivities({ state, dispatch }) {
   const [confirm, setConfirm] = useState(false), f = state.farm, day = state.phase === 'day';
   const satiety = Math.round(state.flock.reduce((sum, s) => sum + (s.hunger ?? 100), 0) / Math.max(1, state.flock.length));
@@ -11,6 +11,7 @@ export default function FarmActivities({ state, dispatch }) {
     <p className="modal-copy">{f.upgradedDay === state.day ? '✓ Đã hoàn thành việc xây dựng hôm nay.' : 'Nhiệm vụ đầu ngày: chọn một công trình nâng cấp.'} Một chuồng chung · {visibleHerdCount(state)}/{f.capacity} con.</p>
     <button disabled={!day} onClick={() => dispatch({ type: 'PASTURE' })}>{f.pastureOpen ? 'Gọi cừu về chuồng' : 'Mở cửa cho cừu ra đồng'}<small>{f.pastureOpen ? 'Đàn đang ở bãi phía tây' : 'Đàn đang ở trong chuồng'}</small></button>
     </div><p className="modal-copy">Cắt cỏ: đi tới bãi cỏ riêng phía đông, bước vào từng luống rồi nhấn E. Mỗi luống cho 2 bó, tối đa 2 luống/ngày nắng. Đã cắt {f.grassCut}/2 luống hôm nay.</p><p className="modal-copy">Kho: {state.inventory.hay}/12 bó cỏ khô · {state.inventory.battery} pin · {state.inventory.clipper} tông đơ.<br />Thời tiết mai: {f.nextSunny ? 'Nắng (búp bê)' : '25% mưa · xác suất độc lập mỗi ngày'}</p>
+    <p className="modal-copy">{merchantAvailable(state) ? 'Thương nhân đang ở sân trại hôm nay.' : `Thương nhân sẽ ghé lại ngày ${nextMerchantDay(state.day)}.`} Lịch ghé: ngày 1, 3, 5… Hãy dự trữ cỏ và pin cho ngày nghỉ.</p>
     {!confirm ? <button className="button secondary full" onClick={() => setConfirm(true)}>Nằm lên giường · Ngủ đến sáng</button> : <div><p className="modal-copy">Bỏ qua {day ? 'cả đêm sắp tới' : 'phần đêm còn lại'}? Sói vẫn xuất hiện, ăn cừu và có thể khiến bạn mất trại.</p><div className="inspect-actions"><button className="button secondary" onClick={() => setConfirm(false)}>Ở lại</button><button className="button primary" onClick={() => { dispatch({ type: 'SLEEP' }); setConfirm(false); }}>Ngủ đến sáng mai</button></div></div>}
   </div>;
 }

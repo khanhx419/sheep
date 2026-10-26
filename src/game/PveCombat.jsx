@@ -23,6 +23,7 @@ export default function PveCombat({ state, dispatch }) {
     renderer.domElement.setAttribute('aria-label', 'Đấu trường PvE 3D trong chuồng'); host.current.appendChild(renderer.domElement);
     const scene = new T.Scene(), kit = createModelKit(); kit.environment(scene); scene.userData.barnShell.visible = false; scene.userData.roofCover.visible = false;
     const set = kit.supplements(scene); set.fenceStages.forEach((f, i) => { f.visible = i === (latest.current.farm.fenceLevel || 0); });
+    scene.userData.shopCrates.visible = false;
     for (const key of ['roofPatch', 'divider', 'deity', 'merchant', 'shop', 'storage']) set[key].visible = false;
     set.gates.forEach(g => { g.rotation.y = g.userData.side * -1.45; });
     const atmosphere = createAtmosphere(scene); scene.fog = new T.FogExp2(0x273f49, .012);
@@ -112,6 +113,7 @@ export default function PveCombat({ state, dispatch }) {
       atmosphere.update(controller.time, true, s.farm.weather === 'rainy');
       scene.userData.countryside.update(controller.time, true, s.farm.weather === 'rainy');
       scene.userData.ambience.update(controller.time, { night: true, rainy: s.farm.weather === 'rainy' });
+      scene.userData.planting.update(controller.time);
       renderer.render(scene, camera);
       if (now - uiAt > 90) { uiAt = now; setView({ label: s.combatHp <= 0 ? 'Sói đã gục' : controller.label, stage: controller.stage, stamina: Math.round(controller.stamina), counter: controller.time < controller.counterUntil, attackReady: controller.time >= controller.attackReadyAt }); }
     }; frame = requestAnimationFrame(draw);

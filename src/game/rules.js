@@ -5,6 +5,9 @@ export const SHEEP_NAMES = ['Bông', 'Mây', 'Sữa', 'Bắp', 'Mochi', 'Mè', '
 export const TELLS = ['eyes', 'paws', 'teeth', 'body', 'tail'];
 export const TARGET_GOLD = 200;
 export const RAIN_CHANCE = .25;
+export const merchantVisits = day => Number.isInteger(day) && day > 0 && day % 2 === 1;
+export const merchantAvailable = state => state.phase === 'day' && merchantVisits(state.day);
+export const nextMerchantDay = day => merchantVisits(day) ? day + 2 : day + 1;
 export function nextWeather(farm, random = Math.random) { return farm.nextSunny ? 'sunny' : random() < RAIN_CHANCE ? 'rainy' : 'sunny'; }
 
 // Presentation must count disguises and never expose an internal species/name.
@@ -17,6 +20,7 @@ export function visibleHerdCount(state) { return farmAnimals(state).length; }
 
 function sheepEntity(id, age, day, penId = 0) { return { id, age, bornDay: day, penId, isSheared: false, hunger: 100, hp: 100 }; }
 function projection(state) {
+  state = { ...state, merchant: { ...state.merchant, present: merchantVisits(state.day) } };
   state = { ...state, farm: { pastureOpen: false, grassCut: 0, nextRain: false, ...state.farm, storedHay: state.inventory.hay }, inventory: { clipper: 1, rainDoll: 0, ...state.inventory } };
   state.farm = { fenceLevel: state.farm.divided ? 1 : 0, expansion: Math.max(0, Math.ceil((state.flock.length - 8) / 4)), upgradedDay: 0, ...state.farm, divided: false };
   state.farm.capacity = Math.min(16, Math.max(state.flock.length, 8 + state.farm.expansion * 4));
@@ -73,7 +77,7 @@ export function advanceDawn(state, random = Math.random) {
   const report = `${eaten ? `Sói ăn mất ${eaten} cừu.` : 'Đàn cừu qua đêm an toàn.'} Thu ${income} xu (${state.farm.fed ? '1 xu/cừu lớn' : 'đàn đói trong ngày mưa'}). ${day % 7 === 0 ? 'Đêm tới trăng tròn: chỉ còn tiếng hú, phải cạo lông.' : ''}`;
   const lost = overrun(flock.length, wolves.length);
   return projection({ ...state, day, phase: lost ? 'lose' : 'day', gold: state.gold + income, flock, wolves, residents: [], activeId: null, combat: null,
-    farm: { ...state.farm, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, grassCut: 0, cutPatches: [] }, merchant: { present: random() < 0.35 },
+    farm: { ...state.farm, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, grassCut: 0, cutPatches: [] }, merchant: { present: merchantVisits(day) },
     player: { ...state.player, energy: 2 }, report: lost ? `Sói còn lại (${wolves.length}) vượt quá 50% đàn cừu (${flock.length}). Trang trại bị chiếm.` : report,
     log: [...state.log, `Đêm ${state.day}: ${report}`].slice(-30) });
 }
@@ -109,7 +113,7 @@ function reduce(state, action) {
     }
     case 'BUY': {
       const item = ITEMS[action.item];
-      if (state.phase !== 'day' || !item || item.shop === 'construction' || state.gold < item.price) return state;
+      if (!merchantAvailable(state) || !item || item.shop === 'construction' || state.gold < item.price) return state;
       if ((item.id === 'clipper' && state.inventory.clipper) || (item.id === 'hay' && state.inventory.hay >= 12) || (['sheep', 'lamb'].includes(item.id) && state.flock.length >= state.farm.capacity)) return state;
       let next = { ...state, gold: state.gold - item.price, report: `Đã mua ${item.name}. ${item.description}` };
       if (item.id === 'axe') { if (state.player.toolBonus >= .35) return state; next.player = { ...state.player, toolBonus: .35 }; }
