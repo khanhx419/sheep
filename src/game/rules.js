@@ -1,5 +1,6 @@
 import { ITEMS, WOLVES, spawnWolves, evolveWolf, absorbDamage, calculateStrike } from './catalog.js';
 import { inMeadowPatch } from './worldMath.js';
+import { CHARMS, MIN_OFFERING, MAX_OFFERING, BOMB_DAMAGE, drawCharm, balanceDrift } from './charms.js';
 export const SAVE_KEY = 'under-the-wool-v3';
 export const SHEEP_NAMES = ['Bông', 'Mây', 'Sữa', 'Bắp', 'Mochi', 'Mè', 'Kem', 'Đậu'];
 export const TELLS = ['eyes', 'paws', 'teeth', 'body', 'tail'];
@@ -20,11 +21,12 @@ export function visibleHerdCount(state) { return farmAnimals(state).length; }
 
 function sheepEntity(id, age, day, penId = 0) { return { id, age, bornDay: day, penId, isSheared: false, hunger: 100, hp: 100 }; }
 function projection(state) {
+  state = { ...state, magic: { lastWeighedDay: 0, sequence: 0, ritual: null, ...state.magic } };
   state = { ...state, merchant: { ...state.merchant, present: merchantVisits(state.day) } };
   state = { ...state, farm: { pastureOpen: false, grassCut: 0, nextRain: false, ...state.farm, storedHay: state.inventory.hay }, inventory: { clipper: 1, rainDoll: 0, ...state.inventory } };
   state.farm = { fenceLevel: state.farm.divided ? 1 : 0, expansion: Math.max(0, Math.ceil((state.flock.length - 8) / 4)), upgradedDay: 0, ...state.farm, divided: false };
   state.farm.capacity = Math.min(16, Math.max(state.flock.length, 8 + state.farm.expansion * 4));
-  state.player = { toolBonus: 0, ownsGun: state.player.weapon === 'gun', ...state.player };
+  state.player = { toolBonus: 0, charmDamageBuff: 1, speedBuff: 1, wardCharges: 0, ownsGun: state.player.weapon === 'gun', ...state.player };
   for (const key of ['flock', 'wolves', 'residents']) state[key] = state[key].map(a => a.penId ? { ...a, penId: 0 } : a);
   state.difficulty = ['easy', 'normal', 'hard'].includes(state.difficulty) ? state.difficulty : 'normal';
   state.player = { clipperUses: 0, ...state.player };
@@ -58,6 +60,7 @@ export function dogAvailable(state) { return state.day > state.dog.exhaustedThro
 export function overrun(sheepCount, wolfCount) { return sheepCount === 0 || wolfCount > sheepCount * 0.5; }
 
 export function advanceDawn(state, random = Math.random) {
+  state = settleRitual(state);
   const surviving = state.residents.filter(a => a.wolf && !a.defeated);
   let flock = [...state.flock], eaten = 0;
   const wolves = surviving.map(w => {
@@ -69,22 +72,39 @@ export function advanceDawn(state, random = Math.random) {
     }
     return { ...w, eatenProgress: total - kills, checked: [], defeated: false };
   });
-  const income = state.farm.fed ? flock.filter(s => s.age === 'adult').length : 0;
+  const baseIncome = state.farm.fed ? flock.filter(s => s.age === 'adult').length : 0;
+  const income = Math.floor(baseIncome * (state.farm.incomeMultiplier || 1));
   const day = state.day + 1;
   flock = flock.map(s => ({ ...s, age: s.age === 'baby' && day - s.bornDay >= 2 ? 'adult' : s.age, isSheared: false }));
   const weather = nextWeather(state.farm, random);
-  flock = flock.map(s => ({ ...s, hunger: Math.max(0, (s.hunger ?? 100) - 65) }));
+  flock = flock.map(s => ({ ...s, hunger: Math.max(0, (s.hunger ?? 100) - 65 - (state.farm.hungerCurse || 0)) }));
   const report = `${eaten ? `Sói ăn mất ${eaten} cừu.` : 'Đàn cừu qua đêm an toàn.'} Thu ${income} xu (${state.farm.fed ? '1 xu/cừu lớn' : 'đàn đói trong ngày mưa'}). ${day % 7 === 0 ? 'Đêm tới trăng tròn: chỉ còn tiếng hú, phải cạo lông.' : ''}`;
   const lost = overrun(flock.length, wolves.length);
   return projection({ ...state, day, phase: lost ? 'lose' : 'day', gold: state.gold + income, flock, wolves, residents: [], activeId: null, combat: null,
-    farm: { ...state.farm, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, grassCut: 0, cutPatches: [] }, merchant: { present: merchantVisits(day) },
-    player: { ...state.player, energy: 2 }, report: lost ? `Sói còn lại (${wolves.length}) vượt quá 50% đàn cừu (${flock.length}). Trang trại bị chiếm.` : report,
+    farm: { ...state.farm, incomeMultiplier: 1, hungerCurse: 0, weather, fed: false, nextSunny: false, nextRain: false, pastureOpen: false, grassCut: 0, cutPatches: [] }, merchant: { present: merchantVisits(day) },
+    player: { ...state.player, wardCharges: 0, energy: 2 }, report: lost ? `Sói còn lại (${wolves.length}) vượt quá 50% đàn cừu (${flock.length}). Trang trại bị chiếm.` : report + (state.farm.incomeMultiplier > 1 ? ' Bùa Lợi Tức: đã nhận 150% thu nhập.' : ''),
     log: [...state.log, `Đêm ${state.day}: ${report}`].slice(-30) });
+}
+
+function settleRitual(state) {
+  const ritual = state.magic?.ritual;
+  if (!ritual || ritual.claimed) return state;
+  const curse = ritual.balanced && ritual.item === 'hungerCurse';
+  const inventory = ritual.balanced && !curse ? { ...state.inventory, [ritual.item]: (state.inventory[ritual.item] || 0) + 1 } : state.inventory;
+  return { ...state, inventory, farm: curse ? { ...state.farm, hungerCurse: (state.farm.hungerCurse || 0) + 10 } : state.farm,
+    magic: { ...state.magic, ritual: { ...ritual, claimed: true } },
+    report: ritual.balanced ? `${CHARMS[ritual.item].name}: ${curse ? CHARMS[ritual.item].description : 'Ấn phép đã vào túi đồ sau khi lá bùa bốc cháy.'}` : `Cán cân nghiêng. ${ritual.coins} Xu đã thuộc về màn sương.` };
 }
 
 function reduce(state, action) {
   switch (action.type) {
     case 'NEW': return newGame();
+    case 'WEIGH_CHARM': {
+      if (!merchantAvailable(state) || !Number.isInteger(action.coins) || action.coins < MIN_OFFERING || action.coins > MAX_OFFERING || state.gold < action.coins || state.magic.lastWeighedDay === state.day || state.magic.ritual && !state.magic.ritual.claimed || ![action.balanceRoll, action.charmRoll].every(value => Number.isFinite(value) && value >= 0 && value < 1)) return state;
+      const sequence = state.magic.sequence + 1, item = drawCharm(state.day, action.charmRoll, action.coins), drift = balanceDrift(action.coins, item), delta = (action.balanceRoll * 2 - 1) * drift, balanced = Math.abs(delta) <= 1;
+      return { ...state, gold: state.gold - action.coins, magic: { ...state.magic, sequence, lastWeighedDay: state.day, ritual: { id: `scale-${state.day}-${sequence}`, day: state.day, coins: action.coins, delta, balanced, item, claimed: false } }, report: `Đã đặt ${action.coins} Xu lên cân. Số phận của lá bùa đã được định.` };
+    }
+    case 'RESOLVE_CHARM': return action.id === state.magic.ritual?.id ? settleRitual(state) : state;
     case 'DIFFICULTY': return ['easy', 'normal', 'hard'].includes(action.value) && state.phase !== 'combat' ? { ...state, difficulty: action.value } : state;
     case 'GRAZE': {
       if (state.phase !== 'day' || !state.farm.pastureOpen || state.farm.weather === 'rainy') return state;
@@ -113,7 +133,7 @@ function reduce(state, action) {
     }
     case 'BUY': {
       const item = ITEMS[action.item];
-      if (!merchantAvailable(state) || !item || item.shop === 'construction' || state.gold < item.price) return state;
+      if (!merchantAvailable(state) || !item || ['construction', 'charm'].includes(item.shop) || state.gold < item.price) return state;
       if ((item.id === 'clipper' && state.inventory.clipper) || (item.id === 'hay' && state.inventory.hay >= 12) || (['sheep', 'lamb'].includes(item.id) && state.flock.length >= state.farm.capacity)) return state;
       let next = { ...state, gold: state.gold - item.price, report: `Đã mua ${item.name}. ${item.description}` };
       if (item.id === 'axe') { if (state.player.toolBonus >= .35) return state; next.player = { ...state.player, toolBonus: .35 }; }
@@ -132,17 +152,24 @@ function reduce(state, action) {
       const id = action.item;
       if (!['day', 'night', 'combat'].includes(state.phase) || !state.inventory[id]) return state;
       let next = { ...state, player: { ...state.player }, report: `Đã dùng ${ITEMS[id]?.name || id}.` };
-      if (id === 'beer' && state.phase !== 'combat' && state.player.energy < 2) next.player.energy = Math.min(2, state.player.energy + 2);
+      if (id === 'forageCharm' && state.phase !== 'combat' && state.inventory.hay < 12) next.inventory = { ...state.inventory, hay: Math.min(12, state.inventory.hay + 2) };
+      else if (id === 'insightCharm' && state.phase === 'night' && state.player.energy < 2) next.player.energy++;
+      else if (id === 'wardCharm' && !state.player.wardCharges) next.player.wardCharges = 1;
+      else if (id === 'moonCharm' && !(state.player.charmDamageBuff > 1) && state.player.damageBuff === 1) next.player.charmDamageBuff = 1.3;
+      else if (id === 'speedCharm' && !(state.player.speedBuff > 1)) next.player.speedBuff = 1.35;
+      else if (id === 'yieldCharm' && state.phase !== 'combat' && !(state.farm.incomeMultiplier > 1)) next.farm = { ...state.farm, incomeMultiplier: 1.5 };
+      else if (id === 'beer' && state.phase !== 'combat' && state.player.energy < 2) next.player.energy = Math.min(2, state.player.energy + 2);
       else if (id === 'medicine' && state.player.hp < 100) next.player.hp = Math.min(100, state.player.hp + 25);
-      else if (id === 'strengthPotion' && state.player.damageBuff === 1) next.player.damageBuff = 1.5;
+      else if (id === 'strengthPotion' && state.player.damageBuff === 1 && !(state.player.charmDamageBuff > 1)) next.player.damageBuff = 1.5;
       else if (id === 'repairKit' && state.player.armor && state.player.armor.durability < state.player.armor.maxDurability) next.player.armor = { ...state.player.armor, durability: Math.min(state.player.armor.maxDurability, state.player.armor.durability + 15) };
       else if (id === 'sunDoll' && state.phase === 'day' && !state.farm.nextSunny) next.farm = { ...state.farm, nextSunny: true, nextRain: false };
       else if (id === 'rainDoll' && state.phase === 'day' && !state.farm.nextRain) next.farm = { ...state.farm, nextRain: true, nextSunny: false };
       else return state;
-      return { ...next, inventory: { ...state.inventory, [id]: state.inventory[id] - 1 } };
+      return { ...next, inventory: { ...(next.inventory || state.inventory), [id]: state.inventory[id] - 1 } };
     }
     case 'NIGHT': {
       if (state.phase !== 'day') return state;
+      state = settleRitual(state);
       const residents = action.residents || makeResidents(state.day, state.flock, Math.random, { wolves: state.wolves, divided: state.farm.divided });
       const wolves = residents.filter(a => a.wolf);
       const lose = overrun(state.flock.length, wolves.length);
@@ -173,6 +200,14 @@ function reduce(state, action) {
         residents: state.residents.map(a => a.id === animal.id ? { ...a, isSheared: shear || a.isSheared, checked: [...a.checked, action.part] } : a) };
     }
     case 'COMBAT': return state.phase === 'reveal' ? { ...state, phase: 'combat' } : state;
+    case 'CAST_CHARM': {
+      if (state.phase !== 'combat' || state.combat.wolfHp <= 0 || !['bombCharm', 'blinkCharm'].includes(action.item) || !state.inventory[action.item] || action.id !== (state.combat.charmSequence || 0) + 1 || state.combat.pendingBomb && action.item === 'bombCharm') return state;
+      return { ...state, inventory: { ...state.inventory, [action.item]: state.inventory[action.item] - 1 }, combat: { ...state.combat, charmSequence: action.id, pendingBomb: action.item === 'bombCharm' ? action.id : state.combat.pendingBomb }, report: action.item === 'bombCharm' ? 'Đã ném Bùa Hỏa Bộc!' : 'Bùa Dịch Chuyển đã cháy.' };
+    }
+    case 'RESOLVE_BOMB': {
+      if (state.phase !== 'combat' || !state.combat.pendingBomb || action.id !== state.combat.pendingBomb) return state;
+      return { ...state, combat: { ...state.combat, pendingBomb: null, wolfHp: Math.max(0, state.combat.wolfHp - BOMB_DAMAGE) }, report: `Bùa nổ trúng sói · ${BOMB_DAMAGE} sát thương.` };
+    }
     case 'PVE_BEGIN': {
       if (state.phase !== 'combat' || state.combat.pveReady || state.combat.wolfHp <= 0) return state;
       const factor = state.difficulty === 'easy' ? 1.7 : state.difficulty === 'hard' ? 3.1 : 2.6;
@@ -198,6 +233,7 @@ function reduce(state, action) {
     }
     case 'DAMAGE': {
       if (state.phase !== 'combat') return state;
+      if (state.player.wardCharges && action.amount > 0) return { ...state, player: { ...state.player, wardCharges: 0 }, report: 'Bùa Da Đá vỡ ra, chặn hoàn toàn một đòn!' };
       if (state.combat.shieldAvailable) return { ...state, combat: { ...state.combat, shieldAvailable: false }, report: 'Chó đỡ đòn thay bạn!' };
       const result = absorbDamage(state.player, action.amount);
       return { ...state, player: result.player, phase: result.player.hp <= 0 ? 'lose' : state.phase, combat: { ...state.combat, bleedTurns: action.bleed && result.hpDamage > 0 ? 3 : state.combat.bleedTurns }, report: result.player.hp <= 0 ? 'Bạn đã gục xuống khi bảo vệ đàn cừu.' : `Giáp chặn ${result.absorbed} sát thương, mất ${result.hpDamage} HP.` };
@@ -209,7 +245,7 @@ function reduce(state, action) {
     }
     case 'WON_FIGHT': {
       if (state.phase !== 'combat' || state.combat.wolfHp > 0) return state;
-      return { ...state, phase: 'night', defeated: state.defeated + 1, activeId: null, combat: null, player: { ...state.player, damageBuff: 1 },
+      return { ...state, phase: 'night', defeated: state.defeated + 1, activeId: null, combat: null, player: { ...state.player, damageBuff: 1, charmDamageBuff: 1, speedBuff: 1 },
         wolves: state.wolves.filter(w => w.id !== state.activeId), residents: state.residents.map(a => a.id === state.activeId ? { ...a, defeated: true } : a), report: 'Đã đuổi sói khỏi chuồng. Đàn cừu an toàn hơn. Tiền chỉ được tạo bởi cừu lớn mỗi ngày.' };
     }
     case 'DAWN': return state.phase === 'night' ? advanceDawn(state, action.random || Math.random) : state;
@@ -236,6 +272,11 @@ export function readSave(storage = localStorage) {
     if (!Number.isInteger(s.player.ammo) || s.player.ammo < 0 || !['gun', 'tool'].includes(s.player.weapon) || !Number.isFinite(s.targetGold) || s.targetGold <= 0 || !Number.isInteger(s.dog.exhaustedThroughNight) || !['sunny', 'rainy'].includes(s.farm.weather)) return null;
     if (Object.entries(s.inventory).some(([id, count]) => !ITEMS[id] || !Number.isInteger(count) || count < 0)) return null;
     if (s.player.armor && (!Number.isFinite(s.player.armor.maxDurability) || s.player.armor.maxDurability <= 0 || !Number.isFinite(s.player.armor.durability) || s.player.armor.durability < 0 || s.player.armor.durability > s.player.armor.maxDurability)) return null;
+    if (s.magic && (!Number.isInteger(s.magic.sequence) || s.magic.sequence < 0 || !Number.isInteger(s.magic.lastWeighedDay) || s.magic.lastWeighedDay < 0 || s.magic.lastWeighedDay > s.day)) return null;
+    const ritual = s.magic?.ritual;
+    if (ritual && (typeof ritual.id !== 'string' || !Number.isInteger(ritual.day) || ritual.day < 1 || ritual.day > s.day || !Number.isInteger(ritual.coins) || ritual.coins < MIN_OFFERING || ritual.coins > MAX_OFFERING || !Number.isFinite(ritual.delta) || !CHARMS[ritual.item] || typeof ritual.balanced !== 'boolean' || typeof ritual.claimed !== 'boolean' || ritual.balanced !== (Math.abs(ritual.delta) <= 1))) return null;
+    if (s.player.speedBuff != null && ![1, 1.35].includes(s.player.speedBuff) || s.player.charmDamageBuff != null && ![1, 1.3].includes(s.player.charmDamageBuff) || s.player.wardCharges != null && ![0, 1].includes(s.player.wardCharges) || s.farm.incomeMultiplier != null && ![1, 1.5].includes(s.farm.incomeMultiplier)) return null;
+    if (s.combat?.pendingBomb != null && (!Number.isInteger(s.combat.pendingBomb) || s.combat.pendingBomb < 1 || s.combat.pendingBomb > s.combat.charmSequence)) return null;
     if (s.residents.some(a => !a || typeof a.id !== 'string' || !Array.isArray(a.checked) || (a.wolf && (!WOLVES[a.type] || !Array.isArray(a.tells))))) return null;
     if (['combat', 'reveal'].includes(s.phase) && (!s.combat || !Number.isFinite(s.combat.wolfHp) || !s.residents.some(a => a.id === s.activeId && a.wolf && !a.defeated))) return null;
     return projection(s);

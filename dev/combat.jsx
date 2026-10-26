@@ -17,7 +17,7 @@ function fixture(type = 'normal', day = 1) {
   // instead of relying on its mount effect. PVE_BEGIN is safe to repeat.
   s = gameReducer(s, { type: 'PVE_BEGIN' });
   s.player = { ...s.player, ownsGun: true, ammo: 5, armor: { itemId: 'armorLight', durability: 20, maxDurability: 20 } };
-  s.inventory = { ...s.inventory, medicine: 2, repairKit: 2, strengthPotion: 1 };
+  s.inventory = { ...s.inventory, medicine: 2, repairKit: 2, strengthPotion: 1, bombCharm: 3, blinkCharm: 3, speedCharm: 1, wardCharm: 1, moonCharm: 1 };
   return s;
 }
 function Preview() {

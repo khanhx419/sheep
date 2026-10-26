@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test src/game/rules.test.js src/game/worldMath.test.js src/game/worldModels.test.js src/game/PveEngine.test.js",
+    "test": "node --test src/game/rules.test.js src/game/worldMath.test.js src/game/worldModels.test.js src/game/PveEngine.test.js src/game/charms.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

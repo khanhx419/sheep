@@ -8,9 +8,9 @@ import { sound, unlockAudio } from './audio.js';
 import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
 import './firstPerson.css';
 
-export default function FirstPersonScene({ animals, night, difficulty = 'normal', paused, suspended = false, selectedId, inspectionPart, onSelect, farm, deityStage = 0, dogSignals = [], fullMoon, onPenChange, merchantPresent, onMerchant, onSettings, onMenu, onAction, controlsRef, sensitivity = 1, children }) {
+export default function FirstPersonScene({ animals, night, difficulty = 'normal', paused, suspended = false, selectedId, inspectionPart, onSelect, farm, deityStage = 0, dogSignals = [], fullMoon, onPenChange, merchantPresent, onMerchant, onSettings, onMenu, onAction, controlsRef, sensitivity = 1, movementMultiplier = 1, children }) {
   const mount = useRef(null), engine = useRef(null), props = useRef(null);
-  props.current = { animals, night, difficulty, paused, suspended, selectedId, inspectionPart, onSelect, farm: farm || {}, deityStage, dogSignals, fullMoon, onPenChange, merchantPresent, onMerchant, onSettings, onMenu, onAction, sensitivity };
+  props.current = { animals, night, difficulty, paused, suspended, selectedId, inspectionPart, onSelect, farm: farm || {}, deityStage, dogSignals, fullMoon, onPenChange, merchantPresent, onMerchant, onSettings, onMenu, onAction, sensitivity, movementMultiplier };
   const [error, setError] = useState('');
   const [locked, setLocked] = useState(false), [torch, setTorch] = useState(true);
   const [target, setTarget] = useState(null), [engaged, setEngaged] = useState(false);
@@ -55,7 +55,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     engine.current = world;
     const shopVisible = () => !!props.current.merchantPresent && !props.current.night;
     const walls = () => [...WALLS, ...outdoorWallsFor(shopVisible()), { x: 0, z: -5.425 - (props.current.farm.expansion || 0) * 2.2375, w: 16, d: .16 }];
-    const npcWalls = () => props.current.merchantPresent && !props.current.night ? [{ x: -4, z: 12.5, w: 0.8, d: 0.8 }] : [];
+    const npcWalls = () => props.current.merchantPresent && !props.current.night ? [{ x: -4, z: 12.2, w: 1.6, d: 1.6 }] : [];
     function cancelHarvest() { if (world.harvest) { world.harvest = null; setHarvesting(null); } }
     function clearInput() { keys.clear(); world.dragging = false; world.touchForward = 0; world.touchStrafe = 0; cancelHarvest(); }
     let lockPending = false, lockCancelled = false, disposed = false, manuallyUnlocked = false;
@@ -90,7 +90,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
     function findTarget() {
       camera.getWorldDirection(direction);
       const candidates = [...animalMap.values()].map(o => ({ position: o.position, animal: o.userData.animal, height: o.userData.animal.age === 'baby' ? 0.7 : 1 }));
-      if (props.current.merchantPresent && !props.current.night) candidates.push({ position: meta.merchant.position, height: 1.3, animal: { id: 'merchant', name: 'Thương nhân lang thang', merchant: true } });
+      if (props.current.merchantPresent && !props.current.night) candidates.push({ position: meta.merchant.position, height: 1.3, animal: { id: 'merchant', name: 'Thương nhân bí ẩn · Cân bùa', merchant: true } });
       if (shopVisible()) candidates.push({ position: meta.shop.position, interactionObstacle: SHOP_FOOTPRINT, height: 1.6, animal: { id: 'farm-shop', name: 'Người bán · Mở cửa hàng', shop: true, merchant: true } });
       candidates.push({ position: { x: -15.5, z: 16 }, height: .8, animal: { id: 'bed', name: 'Giường · Nghỉ ngơi', activity: 'home' } });
       candidates.push({ position: { x: -4, z: 9.5 }, interactionObstacle: OUTDOOR_WALLS.find(o => o.x === -4 && o.z === 9.5), height: 2, animal: { id: 'guide-board', name: 'Biển hướng dẫn', activity: 'guide' } });
@@ -238,6 +238,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
       meta.merchant.userData.head.rotation.y = Math.sin(visualTime * .35) * .12;
       meta.merchant.userData.lantern.rotation.z = Math.sin(visualTime * 1.5) * .065;
       meta.merchant.userData.glow.intensity = 6.5 + Math.sin(visualTime * 5.1) * .25;
+      meta.merchant.userData.scaleBeam.rotation.z = Math.sin(visualTime * 1.1) * .035;
       if (meta.shop.userData.clerk) meta.shop.userData.clerk.visible = !current.night;
       meta.storage.children.forEach((bale, index) => { bale.visible = index < Math.ceil((current.farm.storedHay || 0) / 2); });
       const gateOpen = current.farm.pastureOpen || Math.hypot(camera.position.x, camera.position.z - 8) < 4;
@@ -323,7 +324,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
           const forward = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + world.touchForward;
           const strafe = Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + world.touchStrafe;
           const speed = keys.has('KeyC') ? 1.5 : keys.has('ShiftLeft') ? 4.3 : 2.6;
-          const movement = movementVector(forward, strafe, world.yaw, speed * dt);
+          const movement = movementVector(forward, strafe, world.yaw, speed * dt * T.MathUtils.clamp(current.movementMultiplier || 1, 1, 1.35));
           const obstacles = [...animalMap.values()].map(o => ({ x: o.position.x, z: o.position.z, w: 1.05, d: 1.35 }));
           // World walls are kept in movePlayer's default list, with animal bodies added.
           const moved = movePlayer(camera.position, movement.x, movement.z, [...walls(), ...npcWalls(), ...obstacles]);

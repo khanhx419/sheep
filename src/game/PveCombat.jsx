@@ -8,15 +8,19 @@ import { sound } from './audio.js';
 import { gameKey, imeInterruptsGame, releaseGameKey } from './worldMath.js';
 import { animateWolf, fitCombatCamera, faceCombatActor } from './combatAnimation.js';
 import { animateFarmSheep, animateFarmDog } from './farmAnimation.js';
+import { createCombatCharms } from './combatCharms.js';
+import { canUseCharm, CHARM_ITEMS } from './charms.js';
+import './mystic.css';
 
 export default function PveCombat({ state, dispatch }) {
   const host = useRef(null), engine = useRef(null), latest = useRef(state); latest.current = state;
-  const [view, setView] = useState({ label: 'Sói đang tìm sơ hở', stage: 'wait', stamina: 100, counter: false, attackReady: true }), [error, setError] = useState(false);
+  const [view, setView] = useState({ label: 'Sói đang tìm sơ hở', stage: 'wait', stamina: 100, counter: false, attackReady: true, charmReady: true }), [error, setError] = useState(false);
   const pause = useRef(false); const [paused, setPaused] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const wolf = state.residents.find(s => s.id === state.activeId);
   useEffect(() => {
     dispatch({ type: 'PVE_BEGIN' });
+    if (latest.current.combat.pendingBomb) dispatch({ type: 'RESOLVE_BOMB', id: latest.current.combat.pendingBomb });
     let renderer;
     try { renderer = new T.WebGLRenderer({ antialias: true }); } catch { setError(true); return; }
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFShadowMap; renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -44,7 +48,16 @@ export default function PveCombat({ state, dispatch }) {
       onSheepHit: id => dispatch({ type: 'SHEEP_HIT', id }),
       onDogHit: () => { if (dogAvailable(latest.current) && latest.current.combatHp > 0) dispatch({ type: 'PVE_DOG_HIT' }); },
       onCycle: () => dispatch({ type: 'END_DODGE' }),
+      onBombHit: id => { dispatch({ type: 'RESOLVE_BOMB', id }); sound('explosion'); },
     }); engine.current = controller;
+    const charmEffects = createCombatCharms(scene);
+    function cast(item) {
+      const s = latest.current;
+      if (pause.current || s.phase !== 'combat' || s.combatHp <= 0 || !(s.inventory[item] > 0) || item === 'bombCharm' && s.combat.pendingBomb) return;
+      const id = (s.combat.charmSequence || 0) + 1;
+      if (controller.castCharm(item, id)) { dispatch({ type: 'CAST_CHARM', item, id }); sound(item === 'blinkCharm' ? 'teleport' : 'charmBurn'); }
+    }
+    controller.requestCharm = cast;
     if (controller.dog) dispatch({ type: 'DOG' });
     const ringGeometry = new T.RingGeometry(.84, 1, 40), lineGeometry = new T.PlaneGeometry(1, 1), bulletGeometry = new T.SphereGeometry(.24, 10, 8);
     const warnMat = new T.MeshBasicMaterial({ color: 0xe5b76b, transparent: true, opacity: .65, side: T.DoubleSide, depthWrite: false });
@@ -63,6 +76,7 @@ export default function PveCombat({ state, dispatch }) {
       const code = gameKey(e);
       if (code === 'Escape' && !e.repeat) { pause.current = !pause.current; setPaused(pause.current); controller.keys.clear(); return; }
       if (pause.current || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+      if (['KeyR', 'KeyQ'].includes(code)) { e.preventDefault(); if (!e.repeat) cast(code === 'KeyR' ? 'bombCharm' : 'blinkCharm'); return; }
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyJ', 'KeyK'].includes(code)) { e.preventDefault(); if (!e.repeat || !['Space', 'KeyJ'].includes(code)) controller.press(code); }
     };
     const up = e => releaseGameKey(controller.keys, e), blur = () => controller.keys.clear();
@@ -73,7 +87,7 @@ export default function PveCombat({ state, dispatch }) {
     let frame, last = performance.now(), uiAt = 0, wonAt = 0;
     const draw = now => {
       frame = requestAnimationFrame(draw); const dt = Math.min(.05, (now - last) / 1000); last = now; if (document.hidden) { controller.keys.clear(); return; }
-      const s = latest.current; controller.gun = s.player.weapon === 'gun';
+      const s = latest.current; controller.gun = s.player.weapon === 'gun'; controller.speedMultiplier = s.player.speedBuff || 1;
       if (s.combatHp > 0 && !pause.current) controller.update(dt); else if (s.combatHp <= 0 && !wonAt) wonAt = now;
       if (wonAt && now - wonAt > 1000) { wonAt = Infinity; dispatch({ type: 'WON_FIGHT' }); }
       if (s.combatHp < previousHp) wolfHitAt = controller.time; previousHp = s.combatHp;
@@ -97,7 +111,8 @@ export default function PveCombat({ state, dispatch }) {
       dog.userData.tail.rotation.z = Math.sin(controller.time * (dogStrike ? 12 : 3)) * .2;
       dog.userData.head.rotation.x = dogStrike ? Math.sin(controller.time * 12) * .14 : .02;
       dog.userData.legs.forEach((leg, i) => { leg.rotation.x = dogStrike ? Math.sin(controller.time * 14 + i * Math.PI) * .5 : 0; });
-      shield.visible = controller.blocking; shield.position.copy(player.position); shield.position.y += .7;
+      shield.visible = controller.blocking || !!s.player.wardCharges; shieldMat.color.set(s.player.wardCharges ? 0xc0b7eb : 0x97d6c1); shield.position.copy(player.position); shield.position.y += .7;
+      charmEffects.update(controller);
       flock.forEach((mesh, i) => { const animal = s.flock.find(a => a.id === sheep[i].id); mesh.visible = !!animal;
         animateFarmSheep(mesh, controller.time, { night: true });
         mesh.userData.head.rotation.x += Math.sin(controller.time * 8 + i) * .04; mesh.position.y = pose.strike ? Math.abs(Math.sin(controller.time * 18 + i)) * .035 : 0; mesh.userData.ears.forEach((ear, side) => { ear.rotation.z = (side ? 1 : -1) * (pose.strike ? .6 : .28); });
@@ -115,16 +130,16 @@ export default function PveCombat({ state, dispatch }) {
       scene.userData.ambience.update(controller.time, { night: true, rainy: s.farm.weather === 'rainy' });
       scene.userData.planting.update(controller.time);
       renderer.render(scene, camera);
-      if (now - uiAt > 90) { uiAt = now; setView({ label: s.combatHp <= 0 ? 'Sói đã gục' : controller.label, stage: controller.stage, stamina: Math.round(controller.stamina), counter: controller.time < controller.counterUntil, attackReady: controller.time >= controller.attackReadyAt }); }
+      if (now - uiAt > 90) { uiAt = now; setView({ label: s.combatHp <= 0 ? 'Sói đã gục' : controller.label, stage: controller.stage, stamina: Math.round(controller.stamina), counter: controller.time < controller.counterUntil, attackReady: controller.time >= controller.attackReadyAt, charmReady: controller.time >= controller.charmReadyAt }); }
     }; frame = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('keydown', down, true); document.removeEventListener('keyup', up, true); document.removeEventListener('compositionstart', blur); document.removeEventListener('compositionend', blur); document.removeEventListener('visibilitychange', blur); window.removeEventListener('blur', blur); atmosphere.dispose(); kit.dispose(); for (const g of [ringGeometry, lineGeometry, bulletGeometry, shield.geometry]) g.dispose(); slashGeometry.dispose(); slashMaterial.dispose(); wolfSlashMaterial.dispose(); sparkGeometry.dispose(); sparkMaterial.dispose(); warnMat.dispose(); hitMat.dispose(); shieldMat.dispose(); light.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); engine.current = null; };
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('keydown', down, true); document.removeEventListener('keyup', up, true); document.removeEventListener('compositionstart', blur); document.removeEventListener('compositionend', blur); document.removeEventListener('visibilitychange', blur); window.removeEventListener('blur', blur); charmEffects.dispose(); atmosphere.dispose(); kit.dispose(); for (const g of [ringGeometry, lineGeometry, bulletGeometry, shield.geometry]) g.dispose(); slashGeometry.dispose(); slashMaterial.dispose(); wolfSlashMaterial.dispose(); sparkGeometry.dispose(); sparkMaterial.dispose(); warnMat.dispose(); hitMat.dispose(); shieldMat.dispose(); light.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); engine.current = null; };
   }, [state.activeId, state.difficulty, dispatch]);
   function press(code) { if (!pause.current) engine.current?.press(code); }
   return <div className="pve-combat"><div className="pve-scene" ref={host} />{error && <div className="pve-error">Không thể dựng cảnh chiến đấu WebGL. Hãy bật tăng tốc đồ họa và tải lại game.</div>}
     {paused && <div className="pve-pause"><h2>Tạm dừng</h2><button className="button primary" onClick={() => { pause.current = false; setPaused(false); }}>Tiếp tục trận đấu</button></div>}
     <div className="pve-enemy"><strong>{wolf.speciesName || wolf.name}</strong><div><i style={{ width: `${state.combatHp / state.combat.wolfMaxHp * 100}%` }} /></div><span>{state.combatHp}/{state.combat.wolfMaxHp} HP</span></div>
     <div className={`pve-skill ${view.stage}`}>{view.stage === 'windup' ? `⚠ ${view.label}` : view.counter ? 'Sơ hở · Phản đòn!' : view.stage === 'strike' ? view.label : ''}</div>
-    <div className="pve-controls"><div className="pve-stamina"><span>Thể lực</span><div><i style={{ width: `${view.stamina}%` }} /></div></div><div className="pve-buttons"><button disabled={paused || !view.attackReady || state.combatHp <= 0} onClick={() => press('KeyJ')}>{view.attackReady ? 'Tấn công · J' : 'Hồi đòn…'}</button><button onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); press('KeyK'); }} onPointerUp={() => engine.current?.release('KeyK')} onLostPointerCapture={() => engine.current?.release('KeyK')}>Đỡ · K</button><button onClick={() => press('Space')}>Né · Space</button><button onClick={() => dispatch({ type: 'SWITCH_WEAPON' })}>{state.player.weapon === 'gun' ? `Súng · ${state.player.ammo}` : 'Cận chiến'}</button><button onClick={() => setItemsOpen(v => !v)}>Vật phẩm</button></div>{itemsOpen && <div className="pve-buttons pve-items">{[['medicine', 'Hồi máu'], ['repairKit', 'Sửa giáp'], ['strengthPotion', 'Tăng lực']].map(([id, name]) => <button key={id} disabled={!state.inventory[id] || paused} onClick={() => dispatch({ type: 'USE', item: id })}>{name} ×{state.inventory[id]}</button>)}</div>}<small>{dogAvailable(state) ? 'Shiba đang hỗ trợ' : 'Shiba nghỉ sau khi kiểm tra'} · {state.difficulty === 'easy' ? 'Cừu được bảo vệ' : `Đàn còn ${state.flock.length} con`}</small></div>
+    <div className="pve-controls"><div className="pve-stamina"><span>Thể lực</span><div><i style={{ width: `${view.stamina}%` }} /></div></div><div className="pve-buttons"><button disabled={paused || !view.attackReady || state.combatHp <= 0} onClick={() => press('KeyJ')}>{view.attackReady ? 'Tấn công · J' : 'Hồi đòn…'}</button><button onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); press('KeyK'); }} onPointerUp={() => engine.current?.release('KeyK')} onLostPointerCapture={() => engine.current?.release('KeyK')}>Đỡ · K</button><button onClick={() => press('Space')}>Né · Space</button><button onClick={() => dispatch({ type: 'SWITCH_WEAPON' })}>{state.player.weapon === 'gun' ? `Súng · ${state.player.ammo}` : 'Cận chiến'}</button><button onClick={() => setItemsOpen(v => !v)}>Vật phẩm</button></div>{itemsOpen && <div className="pve-buttons pve-items">{[['medicine', 'Hồi máu'], ['repairKit', 'Sửa giáp'], ['strengthPotion', 'Tăng lực'], ['wardCharm', 'Da Đá'], ['speedCharm', 'Phong Hành'], ['moonCharm', 'Trăng Bạc']].map(([id, name]) => <button key={id} disabled={!state.inventory[id] || paused || CHARM_ITEMS[id] && !canUseCharm(state, id)} onClick={() => dispatch({ type: 'USE', item: id })}>{name} ×{state.inventory[id]}</button>)}</div>}<div className="pve-charms">{[['bombCharm', 'Bùa nổ · R'], ['blinkCharm', 'Dịch chuyển · Q']].filter(([id]) => state.inventory[id] > 0).map(([id, name]) => <button key={id} disabled={paused || !view.charmReady || state.combatHp <= 0 || id === 'bombCharm' && !!state.combat.pendingBomb} onClick={() => engine.current?.requestCharm(id)}>{name} ×{state.inventory[id]}</button>)}</div>{(state.player.speedBuff > 1 || state.player.charmDamageBuff > 1 || state.player.wardCharges > 0) && <small className="pve-magic-status">{[state.player.speedBuff > 1 && 'Tốc độ +35%', state.player.charmDamageBuff > 1 && 'Sát thương +30%', state.player.wardCharges > 0 && 'Da Đá: 1 đòn'].filter(Boolean).join(' · ')}</small>}<small>{dogAvailable(state) ? 'Shiba đang hỗ trợ' : 'Shiba nghỉ sau khi kiểm tra'} · {state.difficulty === 'easy' ? 'Cừu được bảo vệ' : `Đàn còn ${state.flock.length} con`}</small></div>
     <div className="pve-move">{[['↑', 'KeyW'], ['←', 'KeyA'], ['↓', 'KeyS'], ['→', 'KeyD']].map(([label, key]) => <button key={key} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); press(key); }} onPointerUp={() => engine.current?.release(key)} onLostPointerCapture={() => engine.current?.release(key)}>{label}</button>)}</div>
   </div>;
 }

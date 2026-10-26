@@ -37,6 +37,13 @@ function noise(duration = 0.25, volume = 0.1) {
   source.connect(filter).connect(gain).connect(context.destination); source.start();
 }
 export function sound(name) {
+  if (name === 'scale') { tone(185, .8, 'triangle', .025, 140); tone(290, .8, 'sine', .02, 200, .5); }
+  if (name === 'charmBalance') { tone(440, .5, 'sine', .04, 440); tone(660, .8, 'sine', .03, 880, .15); }
+  if (name === 'charmFail') { tone(150, .6, 'triangle', .04, 50); noise(.3, .025); }
+  if (name === 'charmReveal') { tone(310, .9, 'sine', .035, 620); tone(620, .8, 'triangle', .02, 930, .2); }
+  if (name === 'charmBurn') { noise(.65, .035); tone(500, .7, 'sine', .018, 120); }
+  if (name === 'teleport') { tone(180, .25, 'sine', .05, 1100); tone(900, .25, 'sine', .025, 250, .12); }
+  if (name === 'explosion') { noise(.45, .15); tone(85, .45, 'triangle', .1, 25); }
   if (name === 'bark') { tone(150, 0.15, 'sawtooth', 0.08, 75); noise(0.1, 0.1); tone(170, 0.18, 'triangle', 0.08, 80, 0.23); }
   if (name === 'bleat') { tone(430, 0.25, 'triangle', 0.04, 330); tone(360, 0.25, 'triangle', 0.035, 290, 0.18); }
   if (name === 'click') tone(520, 0.1, 'sine', 0.025, 760);

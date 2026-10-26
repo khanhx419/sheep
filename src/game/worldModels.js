@@ -368,7 +368,25 @@ export function createModelKit() {
     for (const y of [-.38, -.12]) cube(lantern, 0x67543e, 0, y, 0, .24, .045, .24);
     for (const x of [-.095, .095]) for (const z of [-.095, .095]) cube(lantern, 0x67543e, x, -.25, z, .02, .25, .02);
     const glow = new T.PointLight(0xeebf71, 7, 5, 1.5); glow.position.set(0, -.25, -.1); lantern.add(glow);
-    merchant.userData = { head: merchantHead, lantern, glow }; bake(merchant); bake(merchantHead); bake(lantern);
+    const scale = new T.Group(); scale.position.set(0, .8, -.78); merchant.add(scale);
+    cube(merchant, 0x67543e, 0, .73, -.75, 1.45, .13, .75);
+    for (const x of [-.6, .6]) for (const z of [-1.03, -.48]) cylinder(merchant, 0x574330, .045, .7, x, .35, z);
+    cylinder(scale, 0xbba070, .025, .47, 0, .24, 0);
+    cylinder(scale, 0x9b8157, .16, .045, 0, .02, 0);
+    const scaleBeam = new T.Group(); scaleBeam.position.y = .47; scale.add(scaleBeam);
+    cube(scaleBeam, 0xd3b67b, 0, 0, 0, .92, .035, .04);
+    for (const side of [-1, 1]) {
+      cylinder(scaleBeam, 0xbba070, .008, .27, side * .37, -.135, 0);
+      cylinder(scaleBeam, 0xbba070, .1, .05, side * .37, -.29, 0, .16);
+    }
+    const charmCard = cube(scaleBeam, 0xd9c6a2, .37, -.16, -.015, .12, .19, .015);
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 192;
+      const context = canvas.getContext('2d'); context.fillStyle = '#d9c6a2'; context.fillRect(0, 0, 128, 192); context.strokeStyle = '#897954'; context.lineWidth = 5; context.strokeRect(10, 10, 108, 172); context.fillStyle = '#53624d'; context.font = 'bold 110px Georgia'; context.textAlign = 'center'; context.fillText('?', 64, 133);
+      const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace; textures.add(texture);
+      const material = new T.MeshStandardMaterial({ map: texture, roughness: .9 }); materials.add(material); charmCard.material = material;
+    }
+    merchant.userData = { head: merchantHead, lantern, glow, scaleBeam }; bake(merchant); bake(merchantHead); bake(lantern); bake(scaleBeam);
     return { roofPatch, divider, deity, merchant, shop, storage, gates, fenceStages, kennel, meadow };
   }
   function doghouse() {

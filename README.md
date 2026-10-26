@@ -78,3 +78,14 @@ node --test src/game/*.test.js
 Các phần chính chạy qua `src/game/rules.js`, `catalog.js`, `PhasePanels.jsx`, `FirstPersonScene.jsx`, `PveEngine.js` và `PveCombat.jsx`. `src/canvas` giữ engine Canvas cũ để tham khảo. Các màn hình cũ trong `src/components`, reducer/context cũ không nằm trong luồng UI mới.
 
 Bản lưu v3 dùng khóa `under-the-wool-v3`. Bản v2 được chuyển tiền, HP, ngày và đàn sang một buổi sáng áp dụng luật mới; khóa v2 vẫn giữ nguyên. Canvas đang bay và vị trí camera không lưu, còn HP/giáp/đạn/hỗ trợ chó được lưu. WebGL 2 cần được bật trong trình duyệt. Nếu không bắt được chuột, kéo chuột và mũi tên vẫn dùng được.
+
+
+## Cân bùa và phép thuật
+
+Thương nhân bí ẩn ở bên trái sân có chiếc cân riêng; E mở nghi thức trong game. Mỗi lần ghé (ngày 1, 3, 5…) chỉ cân một lần, chọn đặt 1–12 Xu. Nhiều Xu tăng trọng số bùa hiếm 8%/Xu, VIP 35%/Xu so với mức 1 Xu. Hệ thống gọi một bùa trước, rồi rút độ lệch đều trong ±[1,25 + 0,055 × (Xu−1) + 0,13 × độ hiếm]. Chỉ nhận khi |độ lệch| ≤ 1. Xác suất giữ cân và thực nhận VIP đều được tính từ đúng mô hình này, hiển thị trước khi đặt. Ngày 1: 1 Xu khoảng 73,9% giữ cân / 10,6% nhận VIP; 12 Xu khoảng 49,8% / 17,8%. Cân lệch mất toàn bộ Xu đặt.
+
+Kết quả, số Xu và độ lệch được lưu ngay khi đặt. Cân thành công thì lá bùa lộ ký hiệu và bốc cháy, ấn phép vào túi đồ đúng một lần. Đóng/mở hoặc tải lại không đổi kết quả; nếu chuyển buổi khi nghi thức còn dở, kết quả được hoàn tất để không mất phần đã trả tiền.
+
+Bùa gồm Cỏ Non (+2 cỏ), Mắt Cú (hồi 1 năng lượng điều tra, tối đa 2), Da Đá (chặn một đòn, hết hạn sáng mai), Trăng Bạc (+30% sát thương một trận), Hỏa Bộc (R/nút Bùa nổ, ném gây 34 sát thương chỉ lên sói), Dịch Chuyển (Q/nút, đi tức thời theo WASD hoặc lùi khỏi sói, 0,4 giây tránh đòn), Phong Hành (+35% tốc độ chạy một trận), Lợi Tức (150% thu nhập bình minh kế tiếp, làm tròn xuống; đàn đói vẫn 0). Buff không cộng dồn; Trăng Bạc không cộng với thuốc tăng lực. Lợi Tức có trọng số cơ bản giảm 8 → 2 sau mỗi 5 ngày; trọng số mất đi chuyển sang Cỏ Non. Có Lời Nguyền Đói tự kích hoạt khi nhận, sáng mai mất thêm 10 độ no.
+
+`dev/charms.html` kiểm thử cân và túi đồ; `dev/combat.html` có bùa để kiểm thử ném, dịch chuyển và buff. Cả hai độc lập với bản lưu người chơi. `charms.test.js` kiểm tra xác suất, tiền cược, tính duy nhất của kết quả, lưu/khôi phục, buff, thu nhập và phép chiến đấu.

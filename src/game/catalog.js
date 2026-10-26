@@ -1,3 +1,4 @@
+import { CHARM_ITEMS } from './charms.js';
 export const WOLVES = {
   normal: { id: 'normal', name: 'Sói thường', minNight: 1, hp: 36, speed: 1, damage: 8, disguise: 'adult', tell: 'paws', tells: ['paws'], dogDetect: true, eatRate: 1, evasion: 0, patternPool: ['normalRain', 'normalSpiral', 'normalWave'], clue: 'Chân to, móng vuốt thò ra dưới lớp lông.', mechanic: 'Ăn 1 cừu mỗi đêm. Chó nhận ra mùi.' },
   rabid: { id: 'rabid', name: 'Sói dại', minNight: 1, hp: 30, speed: 1.35, damage: 6, disguise: 'adult', tell: 'eyes', tells: ['eyes', 'teeth'], dogDetect: true, eatRate: 1, evasion: 0, statusEffect: 'bleed', patternPool: ['rabidChaos', 'rabidBurst', 'rabidZigzag'], clue: 'Mắt đỏ, nước dãi chảy ở miệng.', mechanic: 'Đạn gây chảy máu 3 lượt nếu xuyên qua giáp.' },
@@ -7,6 +8,7 @@ export const WOLVES = {
   white: { id: 'white', name: 'Sói trắng', minNight: 8, hp: 48, speed: 1.1, damage: 8, disguise: 'adult', tell: null, tells: [], dogDetect: true, eatRate: 1, evasion: 0, specialMechanic: 'whiteout', patternPool: ['whitePulse', 'whiteCross', 'whiteVeil'], clue: 'Ngụy trang hoàn hảo; phải cạo lông để xác định.', mechanic: 'Sương trắng che từ giữa màn hình ra ngoài khi né đạn.' },
 };
 export const ITEMS = {
+  ...CHARM_ITEMS,
   clipper: { id: 'clipper', name: 'Tông đơ', price: 6, shop: 'basic', description: 'Dụng cụ cạo lông, có sẵn một chiếc. Mỗi lần cạo dùng một pin.' },
   hay: { id: 'hay', name: 'Cỏ khô', price: 1, shop: 'basic', description: 'Một bó cho đàn ăn trong một ngày mưa.' },
   battery: { id: 'battery', name: 'Pin tông đơ', price: 2, shop: 'basic', description: 'Một lần cạo lông; dùng thêm 1 năng lượng.' },
@@ -53,6 +55,6 @@ export function calculateStrike(position, player, wolf, dogUsed = false, random 
   if (random() < wolf.evasion) return { damage: 0, label: 'Sói né được đòn!', fired };
   const distance = Math.abs(position - 0.5), critical = distance <= (fired ? 0.18 : 0.06), good = distance <= (fired ? 0.35 : 0.22);
   const armorBonus = player.armor?.durability > 0 ? ITEMS[player.armor.itemId]?.attackBonus || 0 : 0;
-  const damage = Math.round((fired ? 24 : 11 * (1 + (player.toolBonus || 0))) * (critical ? 1.6 : good ? 1 : 0.4) * (dogUsed ? 1.05 : 1) * (player.damageBuff || 1) * (1 + armorBonus));
+  const damage = Math.round((fired ? 24 : 11 * (1 + (player.toolBonus || 0))) * (critical ? 1.6 : good ? 1 : 0.4) * (dogUsed ? 1.05 : 1) * Math.max(player.damageBuff || 1, player.charmDamageBuff || 1) * (1 + armorBonus));
   return { damage, label: critical ? 'Critical!' : good ? 'Đánh trúng!' : 'Đòn sượt', fired };
 }

@@ -7,14 +7,34 @@ export function combatPressure(day = 1, seconds = 0) {
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const arenaPoint = (x, z) => ({ x: Math.max(-5, Math.min(5, x)), z: Math.max(-3.8, Math.min(4.3, z)) });
 export class PveEngine {
-  constructor({ type = 'normal', day = 1, difficulty = 'normal', sheep = [], dog = false, gun = false, random = Math.random, onHit = () => {}, onAttack = () => {}, onSheepHit = () => {}, onDogHit = () => {}, onCycle = () => {} } = {}) {
-    Object.assign(this, { type, day, sheep, dog, gun, random, onHit, onAttack, onSheepHit, onDogHit, onCycle });
+  constructor({ type = 'normal', day = 1, difficulty = 'normal', sheep = [], dog = false, gun = false, random = Math.random, onHit = () => {}, onAttack = () => {}, onSheepHit = () => {}, onDogHit = () => {}, onCycle = () => {}, onBombHit = () => {} } = {}) {
+    Object.assign(this, { type, day, sheep, dog, gun, random, onHit, onAttack, onSheepHit, onDogHit, onCycle, onBombHit });
     this.rules = DIFFICULTIES[difficulty]; this.keys = new Set(); this.player = { x: 0, z: 2.5 }; this.wolf = { x: 0, z: -1 };
     this.time = 0; this.stage = 'wait'; this.timer = .9; this.effects = []; this.stamina = 100;
     this.attackAt = -10; this.attackReadyAt = 0; this.dodgeAt = -10; this.blockAt = -10; this.counterUntil = 0; this.invulnerableUntil = 0; this.dogAt = -10; this.dogAttackSeen = -10;
     this.pressure = combatPressure(day); this.projectileSpeed = 5.5;
     this.previous = ''; this.label = 'Sói đang tìm sơ hở'; this.hitIds = new Set();
     this.stageDuration = .9; this.castCount = 0; this.dashMotion = null;
+    this.speedMultiplier = 1; this.charmReadyAt = 0; this.bomb = null; this.bombExplosion = null; this.blinkEffect = null;
+  }
+  castCharm(kind, id) {
+    if (!['bombCharm', 'blinkCharm'].includes(kind) || this.time < this.charmReadyAt || kind === 'bombCharm' && this.bomb) return false;
+    if (kind === 'bombCharm') this.bomb = { id, from: { ...this.player }, castAt: this.time };
+    else {
+      let dx = Number(this.keys.has('KeyD') || this.keys.has('ArrowRight')) - Number(this.keys.has('KeyA') || this.keys.has('ArrowLeft'));
+      let dz = Number(this.keys.has('KeyS') || this.keys.has('ArrowDown')) - Number(this.keys.has('KeyW') || this.keys.has('ArrowUp'));
+      if (!dx && !dz) { dx = this.player.x - this.wolf.x; dz = this.player.z - this.wolf.z; }
+      const heading = Math.atan2(dz || (!dx ? 1 : 0), dx), candidates = [];
+      for (const offset of [0, .65, -.65, 1.3, -1.3, Math.PI]) {
+        const p = arenaPoint(this.player.x + Math.cos(heading + offset) * 3.2, this.player.z + Math.sin(heading + offset) * 3.2);
+        if (distance(p, this.player) >= 1) candidates.push(p);
+      }
+      const target = candidates.find(p => this.effects.every(effect => !this.overlaps(p, effect)) && distance(p, this.wolf) > 1.5) || candidates[0];
+      if (!target) return false;
+      this.blinkEffect = { from: { ...this.player }, to: target, at: this.time }; this.player = target;
+      this.invulnerableUntil = Math.max(this.invulnerableUntil, this.time + .4);
+    }
+    this.charmReadyAt = this.time + 1; return true;
   }
   press(code) {
     if (code === 'Space' && this.time - this.dodgeAt > 1 && this.stamina >= 24) {
@@ -94,11 +114,14 @@ export class PveEngine {
   }
   update(dt) {
     dt = Math.min(.05, Math.max(0, dt)); this.time += dt; this.timer -= dt;
+    if (this.bomb && this.time - this.bomb.castAt >= .65) {
+      const id = this.bomb.id; this.bomb = null; this.bombExplosion = { x: this.wolf.x, z: this.wolf.z, at: this.time }; this.onBombHit(id);
+    }
     this.blocking = this.keys.has('KeyK') && this.stamina > 5;
     this.stamina = Math.max(0, Math.min(100, this.stamina + (this.blocking ? -15 : 20) * dt));
     const x = Number(this.keys.has('KeyD') || this.keys.has('ArrowRight')) - Number(this.keys.has('KeyA') || this.keys.has('ArrowLeft'));
     const z = Number(this.keys.has('KeyS') || this.keys.has('ArrowDown')) - Number(this.keys.has('KeyW') || this.keys.has('ArrowUp'));
-    const length = Math.hypot(x, z) || 1, speed = this.blocking ? 1.6 : 3.8;
+    const length = Math.hypot(x, z) || 1, speed = (this.blocking ? 1.6 : 3.8) * Math.max(1, Math.min(1.35, Number(this.speedMultiplier) || 1));
     this.player.x = Math.max(-5, Math.min(5, this.player.x + x / length * speed * dt));
     this.player.z = Math.max(-3.8, Math.min(4.3, this.player.z + z / length * speed * dt));
     if (this.stage === 'wait' && this.timer <= 0) this.choose();
