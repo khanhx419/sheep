@@ -1,0 +1,51 @@
+/* Shared UI palette: ivory paper, slate blue controls, copper actions. */
+.game-app .modal{--ink:#20334c;--muted:#52647b;--gold:#835019;--line:#9dacc066;--panel:#f4efe5}
+.game-app .modal-backdrop{background:#101b32b8}
+.game-app .modal,.game-app .modal.charm-modal{color:#20334c;background:linear-gradient(145deg,#fffaf1,#e8edf5)!important;border:1px solid #a5b4ca!important;box-shadow:0 24px 90px #07132788;scrollbar-color:#7b8fae #e9edf4}
+.game-app .modal :is(h2,h3,strong){color:#233956}
+.game-app .modal :is(p,small,.eyebrow,.section-heading,.modal-copy,.guide-copy p,.gdd-book-copy p,.wolf-pages p,.wolf-pages small,.small-note){color:#485e79}
+.game-app .modal .eyebrow{font-size:10px;letter-spacing:1.5px;color:#705029}
+.game-app .modal .button,.game-app .modal .icon-button{background:#e1e8f3;color:#243d62;border:1px solid #8d9fb9;min-height:44px;font-size:12px}
+.game-app .button.primary,.game-app .modal .button.primary{background:#315e9d;border-color:#244d86;color:#fff;box-shadow:0 3px 0 #1c3f70}
+.game-app .button.primary:hover:not(:disabled){background:#244d86}
+.game-app .modal button:disabled{opacity:1;color:#5d6c80;background:#dce1e8;border-color:#b1bbc8;box-shadow:none;cursor:not-allowed}
+.game-app button:focus-visible,.game-app input:focus-visible,.game-app select:focus-visible{outline:3px solid #d17826;outline-offset:3px}
+.game-app .modal :is(input[type=range]){accent-color:#315e9d;min-height:20px}
+.game-app .modal :is(select,option){background:#fffaf3;color:#243d62;border-color:#899ebd}
+.game-app .modal .shop-tabs button{background:#e2e8f1;color:#3d5270;border-color:#a0afc4;font-size:11px}
+.game-app .modal .shop-tabs button.active{background:#315e9d;color:white;border-color:#244d86}
+.game-app .modal :is(.item-card,.activity-grid button,.bag-grid button,.bag-grid .empty-slot,.bag-detail,.field-note){background:#fffaf2;border-color:#acb8c9;color:#253b59}
+.game-app .modal .item-card:hover:not(:disabled),.game-app .modal .activity-grid button:hover:not(:disabled){background:#e3edf9;border-color:#315e9d}
+.game-app .modal :is(.item-card small,.activity-grid small,.bag-detail p){color:#4c607b;font-size:11px}
+.game-app .modal .item-card>b,.game-app .modal .bag-grid b{color:#87501c}
+.game-app .modal .bag-grid button.selected{border-color:#315e9d;background:#dce9fb}
+.game-app .modal .bag-grid b{background:#fffaf2;border-radius:3px;padding:1px 4px}
+.game-app .modal .shop-scroll{scrollbar-color:#8296b6 #e8edf4}
+.game-app .modal .mystic-balance{color:#243b59}
+.game-app .modal .mystic-balance :is(header p,.mystic-result p,.mystic-note,.charm-odds p,.charm-odds small){color:#4d5f78}
+.game-app .modal .mystic-result h3{color:#263f65}
+.game-app .modal .mystic-result small{color:#795020}
+.game-app .modal :is(.charm-offering,.dice-ritual){background:#dce6f3;border:1px solid #9bafcd;border-radius:12px}
+.game-app .modal :is(.charm-offering label,.charm-estimates,.charm-odds summary){color:#3e5678}
+.game-app .modal :is(.charm-offering strong,.charm-estimates b,.charm-odds article b){color:#754513}
+.game-app .modal .charm-odds article{border-color:#a7b6cb80}
+.game-app .modal .charm-odds{border-color:#a7b6cb}
+.game-app .modal .dice-copy strong{color:#253e64}
+.game-app .modal .dice-copy small{color:#425978}
+.game-app .modal .dice-roll-button{background:#b95323;color:#fff;border:1px solid #8e3812;font-size:13px;font-weight:700;box-shadow:0 3px 0 #87370f;min-height:46px;width:100%}
+.game-app .modal .dice-roll-button:hover:not(:disabled){background:#9c4319}
+.game-app .modal .dice-roll-button:disabled{background:#c6d3e5;color:#304b70;border-color:#8d9fb9;box-shadow:none}
+.dice-choices{display:flex;gap:8px;margin:10px 0}
+.game-app .modal .dice-choices button{flex:1;min-height:38px;border:1px solid #8e9fba;border-radius:6px;background:#f8faff;color:#304b70;font-size:12px}
+.game-app .modal .dice-choices button[aria-pressed=true]{background:#315e9d;color:#fff;border-color:#244d86;box-shadow:inset 0 0 0 2px #fff7}
+.game-app .modal .dice-choices button:disabled{opacity:1;cursor:default}
+.game-app :is(.hud-status,.hud-wallet,.pve-controls,.pve-skill,.fp-interact,.fp-inspect-panel,.field-harvest,.field-notice){background:#152943ed;border-color:#b1c8e3;color:#f5f8ff;border-radius:9px}
+.game-app .hud-wallet{padding:8px 12px}
+.game-app :is(.quiet-settings,.hud-nav button,.pve-buttons button,.pve-charms button){background:#274a74;color:#fff;border:1px solid #9eb8dc}
+.game-app .pve-buttons button:disabled,.game-app .pve-charms button:disabled{opacity:1;background:#35465e;color:#bcc9dc}
+.game-app :is(.pve-controls small,.fp-inspect-panel p,.fp-inspect-panel small){color:#d0def2}
+.game-app .pve-pause{background:#14253bef;color:#f5f8ff}
+
+.game-app .modal .mystic-stage{height:170px}
+.game-app .modal .mystic-result{min-height:65px}
+.game-app .modal .scale-card-wrap{height:90px}.game-app .modal .charm-paper{height:90px}.game-app .modal .unknown-charm{height:80px;width:50px}.game-app .modal .charm-paper .item-art{height:95px;width:95px}

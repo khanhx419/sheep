@@ -16,7 +16,7 @@ function reducer(state, action) {
   if (action.type === 'QA_CASE') return { ...state, qaCase: action.value };
   if (action.type === 'QA_BAG') return { ...state, qaBag: !state.qaBag };
   if (action.type === 'QA_RESET') return { ...fresh(action.day || 1), qaRun: state.qaRun + 1 };
-  if (action.type === 'WEIGH_CHARM' && state.qaCase !== 'random') action = { ...action, balanceRoll: state.qaCase === 'failure' ? .999 : .5 };
+  if (action.type === 'WEIGH_CHARM' && state.qaCase !== 'random') action = { ...action, balanceRoll: state.qaCase === 'failure' ? .999 : 0 };
   return gameReducer(state, action);
 }
 function Preview() {

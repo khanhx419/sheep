@@ -33,6 +33,7 @@ export function CharmGlyph({ type }) {
     {type === 'blink' && <><ellipse cx="36" cy="33" rx="9" ry="17" /><path d="m24 24-4 8 4 8m24-16 4 8-4 8M31 33h10" /></>}
     {type === 'wind' && <><path d="M22 26h19q10 0 7-7-3-5-7 0M20 34h29M24 41h14q9 0 6 7-3 4-7 0" /></>}
     {type === 'coin' && <><circle cx="36" cy="33" r="13" /><path d="M36 24v18m6-15h-9q-6 4 3 6 9 2 3 7h-9" /></>}
+    {['coinPlus','coinMinus'].includes(type) && <><circle cx="36" cy="33" r="13"/><path d="M29 33h14"/>{type === 'coinPlus' && <path d="M36 26v14"/>}</>}
     {type === 'curse' && <><path d="m36 16 13 16-13 17-13-17ZM30 26l12 13m0-13L30 39" /><path d="M18 23v5m36 11v5" /></>}
   </>;
 }

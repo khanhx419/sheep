@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { charmOffers, charmOffer, CHARM_ITEMS, BOMB_DAMAGE } from './charms.js';
+import { charmPool, offeringOdds, offeringChance, diceOutcome, rollThreeDice, threeDiceOdds, LUCK_DICE, CHARM_ITEMS, BOMB_DAMAGE } from './charms.js';
 import { newGame, gameReducer as reduce, advanceDawn, readSave, SAVE_KEY } from './rules.js';
 import { evolveWolf, calculateStrike } from './catalog.js';
 import { PveEngine } from './PveEngine.js';
 import { createCombatCharms } from './combatCharms.js';
-const bet = (state, id, balanceRoll = .5) => reduce(state, { type: 'WEIGH_CHARM', item: id, balanceRoll });
+const bet = (state, id, balanceRoll = 0, coins = 3) => {
+ const luck = state.magic?.luck?.day === state.day && !state.magic.luck.consumed ? state.magic.luck.multiplier : 1;
+ let edge = 0, prizeRoll = 0;
+ for (const row of charmPool(state.day, luck)) { if (row.id === id) { prizeRoll = edge + row.probability / 2; break; } edge += row.probability; }
+ return reduce(state, { type: 'WEIGH_CHARM', coins, prizeRoll, balanceRoll });
+};
 const claim = state => reduce(state, { type: 'RESOLVE_CHARM', id: state.magic.ritual.id });
 function fight() {
   let state = newGame(); const wolf = { ...evolveWolf('normal', 1), id: 'test-wolf', wolf: true, penId: 0, checked: [], defeated: false };
@@ -14,58 +19,104 @@ function fight() {
 }
 const restore = state => readSave({ getItem: key => key === SAVE_KEY ? JSON.stringify(state) : null });
 
-test('each selected charm ticket has its own fixed fee and chance, with expensive VIP rewards less likely', () => {
-  const offers = charmOffers(1);
-  assert.equal(offers.length, 8);
-  assert.equal(charmOffer(1, 'forageCharm').price, 1); assert.equal(charmOffer(1, 'forageCharm').chance, .85);
-  assert.equal(charmOffer(1, 'yieldCharm').price, 6); assert.equal(charmOffer(1, 'yieldCharm').chance, .22);
-  for (const a of offers) for (const b of offers) if (a.price > b.price) assert.ok(a.chance < b.chance);
-  assert.equal(charmOffer(1, 'hungerCurse'), null);
-  assert.ok(charmOffer(31, 'yieldCharm').chance < charmOffer(1, 'yieldCharm').chance);
-  assert.equal(charmOffer(100, 'yieldCharm').chance, .08);
-});
+test('three dice use low below 12, middle exactly 12 and high above 12, including triples', () => {
+ const counts={low:0,middle:0,high:0};
+ for(let a=1;a<=6;a++) for(let b=1;b<=6;b++) for(let c=1;c<=6;c++) {
+  const dice=[a,b,c],sum=a+b+c,expected=sum<12?'low':sum===12?'middle':'high';counts[expected]++;
+  for(const choice of ['low','middle','high']) {
+   const result=diceOutcome(dice,choice);assert.equal(result.side,expected);assert.equal(result.won,expected===choice);assert.equal(result.multiplier,result.won?2:1);
 
-test('the signed deviation reproduces each displayed ticket chance and only rewards the selected charm', () => {
-  for (const day of [1, 31]) for (const id of Object.keys(CHARM_ITEMS)) {
-    const offer = charmOffer(day, id);
-    let wins = 0;
-    for (let i = 0; i < 200; i++) {
-      const roll = (i + .5) / 200, state = bet({ ...newGame(), day }, id, roll), ritual = state.magic.ritual;
-      assert.ok(Math.abs(ritual.delta - (roll * 2 - 1) / offer.chance) < 1e-10);
-      assert.equal(ritual.item, id); assert.equal(ritual.coins, offer.price); assert.equal(ritual.chance, offer.chance);
-      assert.equal(ritual.balanced, Math.abs(ritual.delta) <= 1);
-      assert.equal(state.gold, 25 - offer.price);
-      if (ritual.balanced) { wins++; assert.equal(claim(state).inventory[id], 1); }
-    }
-    assert.ok(Math.abs(wins / 200 - offer.chance) < .011, 'advertised probability matches observed wins across the roll interval');
   }
+ }
+ assert.deepEqual(counts,{low:135,middle:25,high:56});
+ assert.deepEqual(threeDiceOdds(),{low:.28,middle:.05,high:.28});
+ assert.equal(diceOutcome([4,4,4],'middle').won,true);
 });
 
-test('one paid offering per visit survives save/close/resume and awards its selected charm exactly once', () => {
-  let state = bet(newGame(), 'bombCharm');
-  assert.equal(state.inventory.bombCharm || 0, 0);
-  assert.equal(bet(state, 'yieldCharm').gold, state.gold);
-  assert.deepEqual(restore(state).magic, state.magic);
-  assert.equal(reduce(state, { type: 'RESOLVE_CHARM', id: 'wrong' }).inventory.bombCharm || 0, 0);
-  state = claim(restore(state)); assert.equal(state.inventory.bombCharm, 1);
-  assert.equal(claim(state).inventory.bombCharm, 1);
-  assert.equal(bet(state, 'blinkCharm').gold, state.gold);
-  const night = reduce(bet(newGame(), 'blinkCharm'), { type: 'NIGHT', residents: [] });
-  assert.equal(night.inventory.blinkCharm, 1);
-  const nextVisit = { ...advanceDawn({ ...night, residents: [] }, () => .9), day: 3 };
-  assert.equal(bet(nextVisit, 'speedCharm').gold, nextVisit.gold - charmOffer(3, 'speedCharm').price);
+test('dice decide wins from the selected guess before generating matching faces', () => {
+ const expected={low:{low:2800,middle:500,high:6700},high:{low:6700,middle:500,high:2800},middle:{low:4750,middle:500,high:4750}};
+ for(const choice of ['low','middle','high']) {
+  const count={low:0,middle:0,high:0};let wins=0;
+  for(let i=0;i<10000;i++) {
+   const rolls=[(i+.5)/10000,((i*37)%1000+.5)/1000,((i*73)%1000+.5)/1000];
+   const result=rollThreeDice(rolls,choice);count[result.side]++;if(result.won) wins++;
+   assert.equal(result.won,rolls[0]<threeDiceOdds()[choice]);
+   assert.deepEqual(diceOutcome(result.dice,choice),{total:result.total,triple:result.triple,side:result.side,won:result.won,multiplier:result.multiplier});
+   assert.ok(result.dice.every(n=>Number.isInteger(n)&&n>=1&&n<=6));
+  }
+  assert.deepEqual(count,expected[choice]);assert.equal(wins,choice==='middle'?500:2800);
+  const rate=threeDiceOdds()[choice];
+  assert.equal(rollThreeDice([rate-1e-8,0,0],choice).won,true);
+  assert.equal(rollThreeDice([rate,0,0],choice).won,false);
+ }
+ assert.equal(rollThreeDice([.1,0,0],'low').side,'low');
+ assert.equal(rollThreeDice([.1,0,0],'high').side,'high');
 });
 
-test('failed tickets keep their fee and cannot choose a prize with a forged cheap price', () => {
-  const failed = claim(bet(newGame(), 'moonCharm', .999));
-  assert.equal(failed.gold, 20); assert.equal(failed.inventory.moonCharm || 0, 0);
-  for (const item of ['unknown', 'hungerCurse', '', null]) assert.equal(bet(newGame(), item).gold, 25);
-  const forged = reduce(newGame(), { type: 'WEIGH_CHARM', item: 'yieldCharm', coins: 1, balanceRoll: .5 });
-  assert.equal(forged.gold, 19); assert.equal(forged.magic.ritual.coins, 6);
-  assert.equal(bet({ ...newGame(), gold: 2 }, 'bombCharm').gold, 2);
-  assert.equal(bet({ ...newGame(), day: 2 }, 'bombCharm').gold, 25);
-  assert.equal(bet({ ...newGame(), phase: 'night' }, 'bombCharm').gold, 25);
-  assert.equal(reduce(newGame(), { type: 'BUY', item: 'bombCharm' }).inventory.bombCharm || 0, 0);
+test('dice charge five coins, persist the choice and consume luck for exactly one offering', () => {
+ const rolls=[.01,.20,.40]; // 1,2,3: Xiu
+ let state=reduce(newGame(), {type:'ROLL_LUCK',choice:'low',rolls});
+ assert.equal(state.gold,20);assert.equal(state.magic.luck.multiplier,2);
+ assert.equal(state.magic.luck.revealed,false);assert.equal(bet(state,'moonCharm').gold,20);
+ assert.equal(reduce(state,{type:'REVEAL_LUCK',id:'wrong'}).magic.luck.revealed,false);
+ state=reduce(restore(state),{type:'REVEAL_LUCK',id:state.magic.luck.id});assert.equal(state.magic.luck.revealed,true);
+ assert.equal(reduce(state,{type:'REVEAL_LUCK',id:state.magic.luck.id}).gold,20);
+ assert.deepEqual(restore(state).magic,state.magic);
+ assert.equal(reduce(state,{type:'ROLL_LUCK',choice:'high',rolls}).gold,20);
+ state=bet(state,'moonCharm');assert.equal(state.gold,17);assert.equal(state.magic.ritual.luck,2);
+ assert.equal(reduce(state,{type:'ROLL_LUCK',choice:'high',rolls}).gold,17);
+ state=claim(state);state=reduce(state,{type:'PREPARE_CHARM'});
+ assert.equal(bet(state,'bombCharm').magic.ritual.luck,1);
+ const reroll=reduce(state,{type:'ROLL_LUCK',choice:'high',rolls:[.9,.2,.4]});assert.equal(reroll.gold,12);assert.equal(reroll.magic.luck.multiplier,1);
+ for(const value of [{choice:'wrong',rolls},{choice:'low',rolls:[0,1,.5]},{choice:'low',rolls:[.5,.5]}]) assert.equal(reduce(newGame(),{type:'ROLL_LUCK',...value}).gold,25);
+ assert.equal(reduce({...newGame(),gold:4},{type:'ROLL_LUCK',choice:'low',rolls}).gold,4);
+ assert.equal(reduce({...newGame(),day:2},{type:'ROLL_LUCK',choice:'low',rolls}).gold,25);
+ const win=reduce(newGame(),{type:'ROLL_LUCK',choice:'high',rolls:[.01,.99,.99]});assert.equal(win.magic.luck.multiplier,2);
+ const tampered=structuredClone(reroll);tampered.magic.luck.multiplier=2;assert.equal(restore(tampered),null);
+});
+
+test('normalized random pools never overflow and VIP remains rare even at maximum luck', () => {
+ for (const day of [1,31,1000]) for (const {multiplier:luck} of LUCK_DICE) for (const coins of [1,3,12]) {
+  const odds=offeringOdds(day,coins,luck);
+  assert.ok(Math.abs(odds.reduce((n,r)=>n+r.probability,0)-1)<1e-12);
+  assert.ok(odds.reduce((n,r)=>n+r.awarded,0)<1);
+  for(const row of odds) { assert.ok(row.chance>0 && row.chance<=.98); assert.ok(row.awarded>=0 && row.awarded<=1); }
+  assert.ok(odds.filter(r=>['moonCharm','yieldCharm'].includes(r.id)).reduce((n,r)=>n+r.probability,0)<.05);
+ }
+ assert.ok(charmPool(31,5).find(r=>r.id==='yieldCharm').probability<charmPool(1,5).find(r=>r.id==='yieldCharm').probability);
+});
+
+test('left pan wins when balanced or heavier; probabilities match sampled outcomes for every charm', () => {
+ for (const id of Object.keys(CHARM_ITEMS)) for(const coins of [1,12]) for(const luck of [1,5]) {
+  const chance=offeringChance(coins,luck,id); let wins=0;
+  for(let i=0;i<200;i++) {
+   const initial=newGame(); initial.magic.luck={day:1,face:luck===5?6:1,multiplier:luck};
+   const state=bet(initial,id,(i+.5)/200,coins),r=state.magic.ritual;
+   assert.equal(r.item,id); assert.equal(state.gold,25-coins); assert.equal(r.balanced,r.delta<=0);
+   if(r.balanced) { wins++; assert.equal(claim(state).inventory[id],1); }
+  }
+  assert.ok(Math.abs(wins/200-chance)<.006);
+ }
+ const boundary=bet(newGame(),'forageCharm',offeringChance(3,1,'forageCharm'));
+ assert.equal(boundary.magic.ritual.delta,0); assert.equal(boundary.magic.ritual.balanced,true);
+});
+
+test('offering, result and luck survive resume without paying twice or rerolling', () => {
+ let state=bet(newGame(),'bombCharm');
+ assert.deepEqual(restore(state).magic,state.magic);
+ assert.equal(bet(state,'yieldCharm').gold,state.gold);
+ assert.equal(reduce(state,{type:'RESOLVE_CHARM',id:'wrong'}).inventory.bombCharm||0,0);
+ state=claim(restore(state)); assert.equal(state.inventory.bombCharm,1); assert.equal(claim(state).inventory.bombCharm,1);
+ assert.equal(bet(state,'blinkCharm').gold,state.gold-3);
+ const night=reduce(bet(newGame(),'blinkCharm'),{type:'NIGHT',residents:[]}); assert.equal(night.inventory.blinkCharm,1);
+ const failed=claim(bet(newGame(),'moonCharm',.999)); assert.equal(failed.gold,22); assert.equal(failed.inventory.moonCharm||0,0);
+ for(const coins of [0,-1,1.5,13,NaN,Infinity]) assert.equal(bet(newGame(),'bombCharm',0,coins).gold,25);
+ assert.equal(bet({...newGame(),day:2},'bombCharm').gold,25);
+ assert.equal(bet({...newGame(),phase:'night'},'bombCharm').gold,25);
+ assert.equal(reduce(newGame(),{type:'BUY',item:'bombCharm'}).inventory.bombCharm||0,0);
+ for(const roll of [-1,1,NaN]) assert.equal(reduce(newGame(),{type:'WEIGH_CHARM',coins:3,prizeRoll:roll,balanceRoll:0}).gold,25);
+ const forged=reduce(newGame(),{type:'WEIGH_CHARM',coins:3,prizeRoll:0,balanceRoll:0,item:'yieldCharm',luck:999});
+ assert.equal(forged.magic.ritual.item,'goldCharm'); assert.equal(forged.magic.ritual.luck,1);
 });
 
 test('a previously paid random-pool ritual keeps its result when loaded after the ticket update', () => {
@@ -74,6 +125,20 @@ test('a previously paid random-pool ritual keeps its result when loaded after th
   const loaded = restore(state); assert.ok(loaded);
   const resolved = claim(loaded); assert.equal(resolved.gold, 13); assert.equal(resolved.inventory.moonCharm, 1);
   assert.equal(claim(resolved).inventory.moonCharm, 1);
+  const ticket = newGame(); ticket.gold = 19;
+  ticket.magic = { sequence: 1, lastWeighedDay: 1, ritual: { id: 'old-ticket', model: 'target-v1', day: 1, coins: 6, chance: .22, item: 'yieldCharm', delta: -.5, balanced: true, claimed: false } };
+  assert.equal(claim(restore(ticket)).inventory.yieldCharm, 1);
+  const tampered = bet(newGame(), 'bombCharm'); tampered.magic.ritual.luck = 999;
+  assert.equal(restore(tampered), null);
+
+});
+
+test('money charms activate exactly once, never create inventory items and cannot make gold negative', () => {
+ const plus=claim(bet(newGame(),'goldCharm'));assert.equal(plus.gold,34);assert.equal(claim(restore(plus)).gold,34);assert.equal(plus.inventory.goldCharm,undefined);
+ const minus=claim(bet(newGame(),'debtCharm'));assert.equal(minus.gold,14);assert.equal(claim(restore(minus)).gold,14);assert.equal(minus.inventory.debtCharm,undefined);
+ const poor=claim(bet({...newGame(),gold:4},'debtCharm'));assert.equal(poor.gold,0);assert.ok(restore(poor));
+ const lost=claim(bet(newGame(),'debtCharm',.999));assert.equal(lost.gold,22);
+ let state=newGame();for(let i=0;i<4;i++){state=claim(bet(state,'forageCharm'));} assert.equal(state.gold,13);assert.equal(state.inventory.forageCharm,4);
 });
 
 test('bombs and teleports consume owned charms; delayed bomb damage cannot be replayed after a reload', () => {

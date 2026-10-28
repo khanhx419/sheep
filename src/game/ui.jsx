@@ -1,3 +1,4 @@
+import './readableTheme.css';
 import { useEffect, useRef } from 'react';
 export const ART = '/assets/art';
 export function Icon({ name, size = 20 }) {

@@ -1,6 +1,6 @@
 import { ITEMS, WOLVES, spawnWolves, evolveWolf, absorbDamage, calculateStrike } from './catalog.js';
 import { inMeadowPatch } from './worldMath.js';
-import { CHARMS, MIN_OFFERING, MAX_OFFERING, BOMB_DAMAGE, charmOffer } from './charms.js';
+import { CHARMS, MIN_OFFERING, MAX_OFFERING, BOMB_DAMAGE, charmOffer, LUCK_DICE, DICE_COST, rollThreeDice, validSavedDice, drawRandomCharm, offeringChance } from './charms.js';
 export const SAVE_KEY = 'under-the-wool-v3';
 export const SHEEP_NAMES = ['Bông', 'Mây', 'Sữa', 'Bắp', 'Mochi', 'Mè', 'Kem', 'Đậu'];
 export const TELLS = ['eyes', 'paws', 'teeth', 'body', 'tail'];
@@ -90,20 +90,34 @@ function settleRitual(state) {
   const ritual = state.magic?.ritual;
   if (!ritual || ritual.claimed) return state;
   const curse = ritual.balanced && ritual.item === 'hungerCurse';
-  const inventory = ritual.balanced && !curse ? { ...state.inventory, [ritual.item]: (state.inventory[ritual.item] || 0) + 1 } : state.inventory;
-  return { ...state, inventory, farm: curse ? { ...state.farm, hungerCurse: (state.farm.hungerCurse || 0) + 10 } : state.farm,
+  const money = ritual.balanced && ['goldCharm', 'debtCharm'].includes(ritual.item);
+  const inventory = ritual.balanced && !curse && !money ? { ...state.inventory, [ritual.item]: (state.inventory[ritual.item] || 0) + 1 } : state.inventory;
+  return { ...state, gold: money ? Math.max(0, state.gold + (ritual.item === 'goldCharm' ? 12 : -8)) : state.gold, inventory, farm: curse ? { ...state.farm, hungerCurse: (state.farm.hungerCurse || 0) + 10 } : state.farm,
     magic: { ...state.magic, ritual: { ...ritual, claimed: true } },
-    report: ritual.balanced ? `${CHARMS[ritual.item].name}: ${curse ? CHARMS[ritual.item].description : 'Ấn phép đã vào túi đồ sau khi lá bùa bốc cháy.'}` : `Cán cân nghiêng. ${ritual.coins} Xu đã thuộc về màn sương.` };
+    report: ritual.balanced ? `${CHARMS[ritual.item].name}: ${curse || money ? CHARMS[ritual.item].description : 'Ấn phép đã vào túi đồ sau khi lá bùa bốc cháy.'}` : `Cán cân nghiêng. ${ritual.coins} Xu đã thuộc về màn sương.` };
 }
 
 function reduce(state, action) {
   switch (action.type) {
     case 'NEW': return newGame();
+    case 'PREPARE_CHARM': return merchantAvailable(state) && state.magic.ritual?.claimed ? { ...state, magic: { ...state.magic, ritual: null } } : state;
+    case 'ROLL_LUCK': {
+      if (!merchantAvailable(state) || state.gold < DICE_COST || state.magic.ritual && !state.magic.ritual.claimed || state.magic.luck?.day === state.day && !state.magic.luck.consumed || !['low','middle','high'].includes(action.choice) || !Array.isArray(action.rolls) || action.rolls.length !== 3 || action.rolls.some(r => !Number.isFinite(r) || r < 0 || r >= 1)) return state;
+      const result = rollThreeDice(action.rolls, action.choice);
+      return { ...state, gold: state.gold - DICE_COST, magic: { ...state.magic, diceSequence: (state.magic.diceSequence || 0) + 1, luck: { day: state.day, id: `dice-${state.day}-${(state.magic.diceSequence || 0) + 1}`, model: 'choice-v4', ...result, revealed: false, consumed: false } }, report: 'Đã trả 5 Xu. Ba xúc xắc nằm dưới bát; kéo bát để xem kết quả.' };
+    }
+    case 'REVEAL_LUCK': {
+      const luck = state.magic.luck;
+      if (!luck || luck.id !== action.id || luck.day !== state.day || luck.revealed !== false || luck.consumed) return state;
+      return { ...state, magic: { ...state.magic, luck: { ...luck, revealed: true } }, report: `Ba xúc xắc: ${luck.dice.join(' + ')} = ${luck.total}. ${luck.won ? 'Đoán đúng' : 'Đoán trượt'} · May mắn ×${luck.multiplier}.` };
+    }
     case 'WEIGH_CHARM': {
-      const offer = charmOffer(state.day, action.item);
-      if (!offer || !merchantAvailable(state) || state.gold < offer.price || state.magic.lastWeighedDay === state.day || state.magic.ritual && !state.magic.ritual.claimed || !Number.isFinite(action.balanceRoll) || action.balanceRoll < 0 || action.balanceRoll >= 1) return state;
-      const sequence = state.magic.sequence + 1, delta = (action.balanceRoll * 2 - 1) / offer.chance, balanced = Math.abs(delta) <= 1;
-      return { ...state, gold: state.gold - offer.price, magic: { ...state.magic, sequence, lastWeighedDay: state.day, ritual: { id: `scale-${state.day}-${sequence}`, model: 'target-v1', day: state.day, coins: offer.price, chance: offer.chance, delta, balanced, item: offer.id, claimed: false } }, report: `Đã mua lượt cân ${CHARMS[offer.id].name} với ${offer.price} Xu. Kết quả đã được niêm phong.` };
+      const coins = action.coins;
+      if (state.magic.luck?.day === state.day && state.magic.luck.revealed === false || !merchantAvailable(state) || !Number.isInteger(coins) || coins < MIN_OFFERING || coins > MAX_OFFERING || state.gold < coins || state.magic.ritual && !state.magic.ritual.claimed || [action.balanceRoll, action.prizeRoll].some(r => !Number.isFinite(r) || r < 0 || r >= 1)) return state;
+      const luck = state.magic.luck?.day === state.day && !state.magic.luck.consumed ? state.magic.luck.multiplier : 1;
+      const item = drawRandomCharm(state.day, luck, action.prizeRoll), chance = offeringChance(coins, luck, item);
+      const sequence = state.magic.sequence + 1, delta = (action.balanceRoll - chance) * 2, balanced = delta <= 0;
+      return { ...state, gold: state.gold - coins, magic: { ...state.magic, sequence, luck: state.magic.luck ? { ...state.magic.luck, consumed: true } : null, lastWeighedDay: state.day, ritual: { id: `scale-${state.day}-${sequence}`, model: 'luck-v2', day: state.day, coins, luck, chance, delta, balanced, item, claimed: false } }, report: `Đã đặt ${coins} Xu lên cân. Lá bùa ngẫu nhiên đã được niêm phong.` };
     }
     case 'RESOLVE_CHARM': return action.id === state.magic.ritual?.id ? settleRitual(state) : state;
     case 'DIFFICULTY': return ['easy', 'normal', 'hard'].includes(action.value) && state.phase !== 'combat' ? { ...state, difficulty: action.value } : state;
@@ -275,7 +289,15 @@ export function readSave(storage = localStorage) {
     if (s.player.armor && (!Number.isFinite(s.player.armor.maxDurability) || s.player.armor.maxDurability <= 0 || !Number.isFinite(s.player.armor.durability) || s.player.armor.durability < 0 || s.player.armor.durability > s.player.armor.maxDurability)) return null;
     if (s.magic && (!Number.isInteger(s.magic.sequence) || s.magic.sequence < 0 || !Number.isInteger(s.magic.lastWeighedDay) || s.magic.lastWeighedDay < 0 || s.magic.lastWeighedDay > s.day)) return null;
     const ritual = s.magic?.ritual;
-    if (ritual && (typeof ritual.id !== 'string' || !Number.isInteger(ritual.day) || ritual.day < 1 || ritual.day > s.day || !Number.isInteger(ritual.coins) || ritual.coins < MIN_OFFERING || ritual.coins > MAX_OFFERING || !Number.isFinite(ritual.delta) || !CHARMS[ritual.item] || typeof ritual.balanced !== 'boolean' || typeof ritual.claimed !== 'boolean' || ritual.balanced !== (Math.abs(ritual.delta) <= 1))) return null;
+    if (ritual && (typeof ritual.id !== 'string' || !Number.isInteger(ritual.day) || ritual.day < 1 || ritual.day > s.day || !Number.isInteger(ritual.coins) || ritual.coins < MIN_OFFERING || ritual.coins > MAX_OFFERING || !Number.isFinite(ritual.delta) || !CHARMS[ritual.item] || typeof ritual.balanced !== 'boolean' || typeof ritual.claimed !== 'boolean' || ritual.balanced !== (ritual.model === 'luck-v2' ? ritual.delta <= 0 : Math.abs(ritual.delta) <= 1))) return null;
+    if (s.magic?.luck) {
+      const luck = s.magic.luck;
+      if (!Number.isInteger(luck.day) || luck.day < 1 || luck.day > s.day || luck.consumed != null && typeof luck.consumed !== 'boolean') return null;
+      if (luck.dice) {
+        if (!validSavedDice(luck)) return null;
+      } else if (!LUCK_DICE.some(row => row.face === luck.face && row.multiplier === luck.multiplier)) return null;
+    }
+    if (ritual?.model === 'luck-v2' && (!LUCK_DICE.some(row => row.multiplier === ritual.luck) || !Number.isFinite(ritual.chance) || ritual.chance <= 0 || ritual.chance > .98 || ritual.item === 'hungerCurse')) return null;
     if (ritual?.model === 'target-v1' && (!charmOffer(ritual.day, ritual.item) || !Number.isFinite(ritual.chance) || ritual.chance <= 0 || ritual.chance >= 1)) return null;
     if (s.player.speedBuff != null && ![1, 1.35].includes(s.player.speedBuff) || s.player.charmDamageBuff != null && ![1, 1.3].includes(s.player.charmDamageBuff) || s.player.wardCharges != null && ![0, 1].includes(s.player.wardCharges) || s.farm.incomeMultiplier != null && ![1, 1.5].includes(s.farm.incomeMultiplier)) return null;
     if (s.combat?.pendingBomb != null && (!Number.isInteger(s.combat.pendingBomb) || s.combat.pendingBomb < 1 || s.combat.pendingBomb > s.combat.charmSequence)) return null;
