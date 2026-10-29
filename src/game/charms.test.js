@@ -1,3 +1,4 @@
+import { bowlPosition } from './diceCupMotion.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
@@ -53,26 +54,30 @@ test('dice decide wins from the selected guess before generating matching faces'
  assert.equal(rollThreeDice([.1,0,0],'high').side,'high');
 });
 
-test('dice charge five coins, persist the choice and consume luck for exactly one offering', () => {
- const rolls=[.01,.20,.40]; // 1,2,3: Xiu
- let state=reduce(newGame(), {type:'ROLL_LUCK',choice:'low',rolls});
+test('dice can be predicted and rolled repeatedly in one day, replacing rather than stacking luck', () => {
+ let state=reduce(newGame(),{type:'ROLL_LUCK',choice:'low',rolls:[.01,.2,.4]});
  assert.equal(state.gold,20);assert.equal(state.magic.luck.multiplier,2);
  assert.equal(state.magic.luck.revealed,false);assert.equal(bet(state,'moonCharm').gold,20);
+ assert.equal(reduce(state,{type:'ROLL_LUCK',choice:'high',rolls:[.9,.2,.4]}).gold,20);
+ const firstId=state.magic.luck.id;
  assert.equal(reduce(state,{type:'REVEAL_LUCK',id:'wrong'}).magic.luck.revealed,false);
- state=reduce(restore(state),{type:'REVEAL_LUCK',id:state.magic.luck.id});assert.equal(state.magic.luck.revealed,true);
- assert.equal(reduce(state,{type:'REVEAL_LUCK',id:state.magic.luck.id}).gold,20);
+ state=reduce(restore(state),{type:'REVEAL_LUCK',id:firstId});
+ state=reduce(state,{type:'ROLL_LUCK',choice:'high',rolls:[.9,.2,.4]});
+ assert.equal(state.gold,15);assert.equal(state.magic.luck.multiplier,1);assert.notEqual(state.magic.luck.id,firstId);
+ assert.equal(reduce(state,{type:'REVEAL_LUCK',id:firstId}).magic.luck.revealed,false);
+ state=reduce(restore(state),{type:'REVEAL_LUCK',id:state.magic.luck.id});
  assert.deepEqual(restore(state).magic,state.magic);
- assert.equal(reduce(state,{type:'ROLL_LUCK',choice:'high',rolls}).gold,20);
- state=bet(state,'moonCharm');assert.equal(state.gold,17);assert.equal(state.magic.ritual.luck,2);
- assert.equal(reduce(state,{type:'ROLL_LUCK',choice:'high',rolls}).gold,17);
- state=claim(state);state=reduce(state,{type:'PREPARE_CHARM'});
- assert.equal(bet(state,'bombCharm').magic.ritual.luck,1);
- const reroll=reduce(state,{type:'ROLL_LUCK',choice:'high',rolls:[.9,.2,.4]});assert.equal(reroll.gold,12);assert.equal(reroll.magic.luck.multiplier,1);
- for(const value of [{choice:'wrong',rolls},{choice:'low',rolls:[0,1,.5]},{choice:'low',rolls:[.5,.5]}]) assert.equal(reduce(newGame(),{type:'ROLL_LUCK',...value}).gold,25);
- assert.equal(reduce({...newGame(),gold:4},{type:'ROLL_LUCK',choice:'low',rolls}).gold,4);
- assert.equal(reduce({...newGame(),day:2},{type:'ROLL_LUCK',choice:'low',rolls}).gold,25);
- const win=reduce(newGame(),{type:'ROLL_LUCK',choice:'high',rolls:[.01,.99,.99]});assert.equal(win.magic.luck.multiplier,2);
- const tampered=structuredClone(reroll);tampered.magic.luck.multiplier=2;assert.equal(restore(tampered),null);
+ state=bet(state,'moonCharm');assert.equal(state.gold,12);assert.equal(state.magic.ritual.luck,1);
+ assert.equal(reduce(state,{type:'ROLL_LUCK',choice:'low',rolls:[.01,.2,.4]}).gold,12);
+ state=claim(state);
+ state=reduce(state,{type:'ROLL_LUCK',choice:'low',rolls:[.01,.2,.4]});
+ assert.equal(state.gold,7);assert.equal(state.magic.ritual,null);assert.equal(state.magic.luck.multiplier,2);
+ state=reduce(state,{type:'REVEAL_LUCK',id:state.magic.luck.id});
+ state=claim(bet(state,'forageCharm'));assert.equal(state.gold,4);assert.equal(state.inventory.forageCharm,1);
+ state=claim(bet(state,'forageCharm'));assert.equal(state.gold,1);assert.equal(state.inventory.forageCharm,2);assert.equal(state.magic.ritual.luck,1);
+ for(const value of [{choice:'wrong',rolls:[0,0,0]},{choice:'low',rolls:[0,1,.5]},{choice:'low',rolls:[.5,.5]}]) assert.equal(reduce(newGame(),{type:'ROLL_LUCK',...value}).gold,25);
+ assert.equal(reduce({...newGame(),gold:4},{type:'ROLL_LUCK',choice:'low',rolls:[0,0,0]}).gold,4);
+ assert.equal(reduce({...newGame(),day:2},{type:'ROLL_LUCK',choice:'low',rolls:[0,0,0]}).gold,25);
 });
 
 test('normalized random pools never overflow and VIP remains rare even at maximum luck', () => {
@@ -219,4 +224,21 @@ test('combat spell effects keep finite transforms and release shared resources',
   for (let i = 0; i < 50; i++) { engine.update(.05); effects.update(engine); effects.root.traverse(part => assert.ok([...part.position, ...part.quaternion, ...part.scale].every(Number.isFinite))); }
   engine.castCharm('blinkCharm', 2); effects.update(engine);
   effects.dispose(); assert.equal(scene.children.length, 0);
+});
+
+test('dragging lifts the bowl above the dice instead of intersecting their faces',()=>{
+ assert.deepEqual(bowlPosition({x:0,y:0},330),{x:0,y:0,z:0});
+ for(const height of [240,270,330,500])for(let angle=0;angle<Math.PI*2;angle+=.2){
+  const p=bowlPosition({x:85*Math.cos(angle),y:85*Math.sin(angle)},height);
+  assert.ok(p.y+.23>.45+.31+.014,'the lowest bowl rim clears the highest pip');
+  assert.ok(Object.values(p).every(Number.isFinite));assert.ok(p.y<=.9);
+ }
+ assert.ok(bowlPosition({x:10,y:0},330).y>0);
+});
+test('Debt Charm is rarer than Fortune and stays below three percent of draws at current luck levels',()=>{
+ for(const day of [1,31,1000])for(const luck of [1,2]){
+  const pool=charmPool(day,luck),debt=pool.find(row=>row.id==='debtCharm');
+  assert.ok(debt.probability<.03);assert.equal(debt.probability/pool.find(row=>row.id==='goldCharm').probability,.5);
+  for(const coins of [1,3,12])assert.ok(offeringOdds(day,coins,luck).find(row=>row.id==='debtCharm').awarded<.025);
+ }
 });

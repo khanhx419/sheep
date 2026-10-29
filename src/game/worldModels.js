@@ -1,3 +1,4 @@
+import { translate, subscribeLanguage } from './i18n.js';
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WALLS, DOG_HOME } from './worldMath.js';
@@ -311,12 +312,18 @@ export function createModelKit() {
     cube(sign, 0x67543e, 0, 2.45, 0, 4.5, 2.75, .18);
     if (typeof document !== 'undefined') {
       const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 640;
-      const c = canvas.getContext('2d'); c.fillStyle = '#eee0ba'; c.fillRect(0, 0, 1024, 640);
+      const c = canvas.getContext('2d');
+      let texture;
+      function paintGuide() { c.fillStyle = '#eee0ba'; c.fillRect(0, 0, 1024, 640);
       c.strokeStyle = '#947b50'; c.lineWidth = 9; c.strokeRect(18, 18, 988, 604);
-      c.fillStyle = '#314c40'; c.font = 'bold 48px Georgia'; c.fillText('SỔ TAY TRẠI SƯƠNG', 65, 90);
+      c.fillStyle = '#314c40'; c.font = 'bold 48px Georgia'; c.fillText(translate('SỔ TAY TRẠI SƯƠNG'), 65, 90);
       c.font = '28px sans-serif';
-      ['WASD: đi lại · chuột: nhìn · Ctrl phải: mở chuột', 'E: tương tác khi đến gần · F: đèn · Esc: cài đặt', 'Ban ngày: cho ăn · ra đồng phía đông cắt cỏ.', 'Thương nhân: ngày 1, 3, 5… Dự trữ cỏ khi mưa.', 'Giường trong nhà: nghỉ đến tối / ngủ đến sáng.', 'Ban đêm: soi cừu, kiểm tra dấu hiệu của sói.', 'Chiến đấu: J đánh · K đỡ · Space né · WASD chạy.', 'Shiba kiểm tra chuồng: nghỉ tới sáng, không đánh.', 'Tab: sinh hoạt · I: túi đồ · H: gọi Shiba kiểm tra.'].forEach((line, i) => c.fillText(line, 60, 157 + i * 49));
-      const texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace; textures.add(texture);
+      ['WASD: đi lại · chuột: nhìn · Ctrl phải: mở chuột', 'E: tương tác khi đến gần · F: đèn · Esc: cài đặt', 'Ban ngày: cho ăn · ra đồng phía đông cắt cỏ.', 'Thương nhân: ngày 1, 3, 5… Dự trữ cỏ khi mưa.', 'Giường trong nhà: nghỉ đến tối / ngủ đến sáng.', 'Ban đêm: soi cừu, kiểm tra dấu hiệu của sói.', 'Chiến đấu: J đánh · K đỡ · Space né · WASD chạy.', 'Shiba kiểm tra chuồng: nghỉ tới sáng, không đánh.', 'Tab: sinh hoạt · I: túi đồ · H: gọi Shiba kiểm tra.'].forEach((line, i) => c.fillText(translate(line), 60, 157 + i * 49));
+      if (texture) texture.needsUpdate=true;
+      }
+      paintGuide();
+      texture = new T.CanvasTexture(canvas); texture.colorSpace = T.SRGBColorSpace; textures.add(texture);
+      extraDisposers.push(subscribeLanguage(paintGuide));
       const material = new T.MeshBasicMaterial({ map: texture, side: T.DoubleSide }); materials.add(material);
       mesh(sign, box, material, 0, 2.45, .11, 4.3, 2.55, .015);
       const reverse = mesh(sign, box, material, 0, 2.45, -.11, 4.3, 2.55, .015); reverse.rotation.y = Math.PI;

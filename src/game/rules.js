@@ -102,9 +102,9 @@ function reduce(state, action) {
     case 'NEW': return newGame();
     case 'PREPARE_CHARM': return merchantAvailable(state) && state.magic.ritual?.claimed ? { ...state, magic: { ...state.magic, ritual: null } } : state;
     case 'ROLL_LUCK': {
-      if (!merchantAvailable(state) || state.gold < DICE_COST || state.magic.ritual && !state.magic.ritual.claimed || state.magic.luck?.day === state.day && !state.magic.luck.consumed || !['low','middle','high'].includes(action.choice) || !Array.isArray(action.rolls) || action.rolls.length !== 3 || action.rolls.some(r => !Number.isFinite(r) || r < 0 || r >= 1)) return state;
+      if (!merchantAvailable(state) || state.gold < DICE_COST || state.magic.ritual && !state.magic.ritual.claimed || state.magic.luck?.day === state.day && state.magic.luck.revealed === false || !['low','middle','high'].includes(action.choice) || !Array.isArray(action.rolls) || action.rolls.length !== 3 || action.rolls.some(r => !Number.isFinite(r) || r < 0 || r >= 1)) return state;
       const result = rollThreeDice(action.rolls, action.choice);
-      return { ...state, gold: state.gold - DICE_COST, magic: { ...state.magic, diceSequence: (state.magic.diceSequence || 0) + 1, luck: { day: state.day, id: `dice-${state.day}-${(state.magic.diceSequence || 0) + 1}`, model: 'choice-v4', ...result, revealed: false, consumed: false } }, report: 'Đã trả 5 Xu. Ba xúc xắc nằm dưới bát; kéo bát để xem kết quả.' };
+      return { ...state, gold: state.gold - DICE_COST, magic: { ...state.magic, ritual: null, diceSequence: (state.magic.diceSequence || 0) + 1, luck: { day: state.day, id: `dice-${state.day}-${(state.magic.diceSequence || 0) + 1}`, model: 'choice-v4', ...result, revealed: false, consumed: false } }, report: 'Đã trả 5 Xu. Ba xúc xắc nằm dưới bát; kéo bát để xem kết quả.' };
     }
     case 'REVEAL_LUCK': {
       const luck = state.magic.luck;

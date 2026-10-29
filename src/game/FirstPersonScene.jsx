@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { createModelKit } from './worldModels.js';
@@ -381,8 +382,8 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
   function stopTouch() { if (engine.current) { engine.current.touchForward = 0; engine.current.touchStrafe = 0; } }
   return <div className={`fp-scene ${selectedId ? 'fp-inspecting' : ''}`}>
     <div className="fp-canvas" ref={mount} />
-    {outsideView && farm?.weather === 'rainy' && <div className="weather-rain" aria-hidden="true" />}
-    {error ? <div className="fp-error"><h3>Không thể mở cảnh 3D</h3><p>{error}</p></div> : <>
+    {tr(outsideView && farm?.weather === 'rainy' && <div className="weather-rain" aria-hidden="true" />)}
+    {tr(error ? <div className="fp-error"><h3>Không thể mở cảnh 3D</h3><p>{error}</p></div> : <>
       <div className="fp-world-label"><i className="live-dot" />TRẠI SƯƠNG <span>{night ? 'CA GÁC BAN ĐÊM' : 'DẠO QUANH TRẠI'} · GÓC NHÌN THỨ NHẤT</span></div>
       {!paused && !selectedId && <><div className={`fp-crosshair ${target?.near ? 'has-target' : ''}`} aria-hidden="true"><i /><i /></div>
         {target?.near && !harvesting && <div className="fp-target" role="status"><strong>{target.name}</strong><span>E · Tương tác</span></div>}
@@ -393,7 +394,7 @@ export default function FirstPersonScene({ animals, night, difficulty = 'normal'
         {fieldNotice && <div className="field-notice" role="status">{fieldNotice}</div>}
         <div className="fp-touch-pad" aria-label="Điều khiển di chuyển"><button aria-label="Đi tới" onPointerDown={e => touchMove(e, 1, 0)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>↑</button><div><button aria-label="Đi sang trái" onPointerDown={e => touchMove(e, 0, -1)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>←</button><button aria-label="Đi lùi" onPointerDown={e => touchMove(e, -1, 0)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>↓</button><button aria-label="Đi sang phải" onPointerDown={e => touchMove(e, 0, 1)} onPointerUp={stopTouch} onLostPointerCapture={stopTouch}>→</button></div></div>
       </>}
-    </>}{children}
+    </>)}{tr(children)}
   </div>;
 }
 
@@ -407,5 +408,5 @@ export function FieldInspection({ animal, state, dispatch, part, onPart, onClose
   }
   useEffect(() => { const key = event => { if (event.code === 'Escape') { event.preventDefault(); onClose(); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, [onClose]);
   useEffect(() => { if (!daytime && !state.inventory.clipper) setNotice('Tông đơ đã hỏng. Cần mua chiếc mới từ người bán ban ngày.'); }, [state.inventory.clipper, daytime]);
-  return <section className="fp-inspect-panel" aria-label={`Kiểm tra tại chỗ ${animal.name}`}><div className="fp-inspect-title"><span className="eyebrow">{daytime ? 'QUAN SÁT' : 'ĐIỀU TRA'} · {animal.name}</span><button className="icon-button" aria-label="Trở lại di chuyển" onClick={onClose}><Icon name="close" size={16} /></button></div><h3>Nhìn kỹ dưới lớp lông.</h3><div className="fp-part-buttons">{[{ id: 'eyes', text: 'Mắt' }, { id: 'paws', text: 'Chân' }, { id: 'teeth', text: 'Miệng' }, { id: 'body', text: 'Thân' }, { id: 'tail', text: 'Đuôi' }].map(p => <button key={p.id} className={part === p.id ? 'active' : ''} onClick={() => { onPart(p.id); setNotice(daytime ? 'Có thể đi quanh và ngắm cừu. Trở lại vào ban đêm để tìm sói.' : 'Đã cúi gần. Hãy quan sát rồi bấm Kiểm tra nếu thấy khả nghi.'); }}>{p.text}{animal.checked?.includes(p.id) && ' ✓'}</button>)}</div><p role="status">{notice}</p>{!daytime && <div className="fp-check-buttons"><button className="button primary" disabled={!part || state.energy < 1 || animal.checked.includes(part)} onClick={() => check(part)}>Kiểm tra · −1</button><button className="button secondary" disabled={state.energy < 1 || !state.inventory.battery || !state.inventory.clipper || animal.checked.includes('wool')} onClick={() => check('wool')}>Cạo lông · −1 + pin</button></div>}<small><Icon name="bolt" size={12} />{daytime ? `${animal.age === 'baby' ? 'Cừu con · lớn sau 2 ngày' : 'Cừu lớn · 1 xu/ngày khi đủ no'}` : `${state.energy}/2 năng lượng · ${state.inventory.battery} pin`} · Esc đứng dậy</small></section>;
+  return <section className="fp-inspect-panel" aria-label={tr(`Kiểm tra tại chỗ ${animal.name}`)}><div className="fp-inspect-title"><span className="eyebrow">{tr(daytime ? 'QUAN SÁT' : 'ĐIỀU TRA')}{tr(" · ")}{tr(animal.name)}</span><button className="icon-button" aria-label={tr("Trở lại di chuyển")} onClick={onClose}><Icon name="close" size={16} /></button></div><h3>{tr("Nhìn kỹ dưới lớp lông.")}</h3><div className="fp-part-buttons">{tr([{ id: 'eyes', text: 'Mắt' }, { id: 'paws', text: 'Chân' }, { id: 'teeth', text: 'Miệng' }, { id: 'body', text: 'Thân' }, { id: 'tail', text: 'Đuôi' }].map(p => <button key={p.id} className={part === p.id ? 'active' : ''} onClick={() => { onPart(p.id); setNotice(daytime ? 'Có thể đi quanh và ngắm cừu. Trở lại vào ban đêm để tìm sói.' : 'Đã cúi gần. Hãy quan sát rồi bấm Kiểm tra nếu thấy khả nghi.'); }}>{p.text}{animal.checked?.includes(p.id) && ' ✓'}</button>))}</div><p role="status">{tr(notice)}</p>{tr(!daytime && <div className="fp-check-buttons"><button className="button primary" disabled={!part || state.energy < 1 || animal.checked.includes(part)} onClick={() => check(part)}>Kiểm tra · −1</button><button className="button secondary" disabled={state.energy < 1 || !state.inventory.battery || !state.inventory.clipper || animal.checked.includes('wool')} onClick={() => check('wool')}>Cạo lông · −1 + pin</button></div>)}<small><Icon name="bolt" size={12} />{tr(daytime ? `${animal.age === 'baby' ? 'Cừu con · lớn sau 2 ngày' : 'Cừu lớn · 1 xu/ngày khi đủ no'}` : `${state.energy}/2 năng lượng · ${state.inventory.battery} pin`)}{tr(" · Esc đứng dậy")}</small></section>;
 }

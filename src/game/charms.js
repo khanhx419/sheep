@@ -75,7 +75,7 @@ export function validSavedDice(luck) {
  return luck.total === luck.dice.reduce((n,f)=>n+f,0) && luck.multiplier === luckForTotal(luck.total);
 }
 export function charmPool(day = 1, luck = 1) {
- const weights = { goldCharm: 4, debtCharm: 6, forageCharm: 40, insightCharm: 28, wardCharm: 12, speedCharm: 10, bombCharm: 5, blinkCharm: 4, moonCharm: .8, yieldCharm: .2 / (1 + Math.floor(Math.max(0, day - 1) / 5) * .25) };
+ const weights = { goldCharm: 4, debtCharm: 2, forageCharm: 40, insightCharm: 28, wardCharm: 12, speedCharm: 10, bombCharm: 5, blinkCharm: 4, moonCharm: .8, yieldCharm: .2 / (1 + Math.floor(Math.max(0, day - 1) / 5) * .25) };
  const rows = Object.entries(weights).map(([id, weight]) => ({ id, weight: weight * Math.pow(luck, charmGrade(id) * .5) }));
  const total = rows.reduce((sum, row) => sum + row.weight, 0);
  return rows.map(row => ({ id: row.id, probability: row.weight / total }));

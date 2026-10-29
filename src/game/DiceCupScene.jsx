@@ -1,3 +1,4 @@
+import { bowlPosition } from './diceCupMotion.js';
 import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -41,8 +42,8 @@ export default function DiceCupScene({faces,offset,rolling,covered}) {
    table=buildDiceTable(faces);scene.add(table.root);let width=1,height=1;
    observer=new ResizeObserver(()=>{const rect=host.current?.getBoundingClientRect();if(!rect?.width||!rect.height)return;width=rect.width;height=rect.height;renderer.setSize(width,height);camera.left=-4*width/height;camera.right=4*width/height;camera.updateProjectionMatrix();});observer.observe(host.current);
    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-   function tick(time){if(dead)return;const state=live.current;const scale=8/height;
-    table.bowl.visible=state.covered;table.bowl.position.set(state.offset.x*scale,0,state.offset.y*scale);
+   function tick(time){if(dead)return;const state=live.current;const position=bowlPosition(state.offset,height);
+    table.bowl.visible=state.covered;table.bowl.position.set(position.x,position.y,position.z);
     table.bowl.rotation.z=0;
     table.dice.children.forEach((die,i)=>{die.rotation.x=0;die.rotation.z=0;die.position.y=.45; if(state.rolling&&!reduced){die.rotation.x=Math.sin(time*.025+i)*.5;die.rotation.z=Math.cos(time*.021+i)*.5;die.position.y=.55+Math.abs(Math.sin(time*.02+i))*.15;}});
     if(state.rolling&&!reduced){table.bowl.position.x=Math.sin(time*.045)*.12;table.bowl.position.z=Math.cos(time*.04)*.1;table.bowl.rotation.z=Math.sin(time*.035)*.035;}

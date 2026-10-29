@@ -49,3 +49,13 @@
 .game-app .modal .mystic-stage{height:170px}
 .game-app .modal .mystic-result{min-height:65px}
 .game-app .modal .scale-card-wrap{height:90px}.game-app .modal .charm-paper{height:90px}.game-app .modal .unknown-charm{height:80px;width:50px}.game-app .modal .charm-paper .item-art{height:95px;width:95px}
+
+/* One local font stack for Vietnamese: no network font swap or mixed accent glyphs. */
+.game-app{font-family:'Segoe UI',Tahoma,Arial,sans-serif;line-height:1.5}
+.game-app :is(h1,h2,h3,.mystic-balance header h2,.mystic-result h3){font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-weight:600;line-height:1.4}
+.game-app :is(button,input,select,textarea){font-family:inherit;line-height:1.45}
+.game-app .modal :is(.button,.dice-choices button){font-size:12px}
+.game-app .modal :is(.mystic-note,.charm-odds p,.charm-odds small,.dice-copy small){font-size:12px;line-height:1.65}
+
+.language-select select{font:inherit;padding:9px 12px;border:1px solid #8fa3c1;border-radius:6px;background:#fffaf2;color:#243b59;min-height:42px}
+.landing-language{display:flex;align-items:center;gap:12px;margin-top:20px;font-size:12px;color:#f7ead4}.landing-language select{background:#19314c;color:#fff;border-color:#99b1d3}.landing-language option{background:#19314c;color:#fff}

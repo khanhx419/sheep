@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 import DiceCupScene from './DiceCupScene.jsx';
 import { useEffect, useRef, useState } from 'react';
 const CHOICES = [['low','Thấp · 3–11'],['middle','Giữa · 12'],['high','Cao · 13–18']];
@@ -31,20 +32,20 @@ export default function DiceCup({ result, rolling, disabled, onRoll, choice, onC
   }
   function scene(interactive=false) {
     const covered = !result || hidden || rolling;
-    return <div className={`dice-table ${interactive ? 'interactive-dice' : ''}`} role={interactive ? undefined : 'img'} aria-label={covered ? 'Ba xúc xắc đang úp kín dưới bát' : `Ba xúc xắc ${faces.join(', ')}, tổng ${result.total}`}>
+    return <div className={`dice-table ${interactive ? 'interactive-dice' : ''}`} role={interactive ? undefined : 'img'} aria-label={tr(covered ? 'Ba xúc xắc đang úp kín dưới bát' : `Ba xúc xắc ${faces.join(', ')}, tổng ${result.total}`)}>
       <DiceCupScene faces={faces} offset={interactive ? offset : {x:0,y:0}} rolling={interactive && rolling} covered={interactive || covered}/>
-      {interactive && <button type="button" className="bowl-hit-target" aria-label="Kéo bát để xem xúc xắc" disabled={rolling} onPointerDown={down} onPointerMove={drag} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={()=>{pointer.current=null;}} onKeyDown={keys} style={{transform:`translate(${offset.x}px,${offset.y}px)`}}/>}
+      {tr(interactive && <button type="button" className="bowl-hit-target" aria-label="Kéo bát để xem xúc xắc" disabled={rolling} onPointerDown={down} onPointerMove={drag} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={()=>{pointer.current=null;}} onKeyDown={keys} style={{transform:`translate(${offset.x}px,${offset.y}px)`}}/>)}
     </div>;
   }
   return <>
     <div className={`dice-ritual ${!hidden && result ? 'is-open' : 'is-covered'}`}>
-      {scene()}
-      <div className="dice-copy"><strong>{hidden || rolling ? 'Bát vẫn đang úp kín' : ready ? `${result.won === true ? 'Đoán đúng · ' : result.won === false ? 'Đoán trượt · ' : ''}May mắn ×${result.multiplier}` : 'Ba viên xúc xắc'}</strong><small>{hidden ? 'Kéo bát trong cửa sổ để xem kết quả' : ready ? result.dice ? `${faces.join(' + ')} = ${result.total} · Dùng cho một lần cân` : 'May mắn từ bản lưu' : 'Chọn Thấp, Giữa hoặc Cao rồi tung xúc xắc'}</small>
-      <div className="dice-choices" role="group" aria-label="Dự đoán Thấp Giữa Cao">{CHOICES.map(([id,label])=><button key={id} type="button" aria-pressed={choice===id} disabled={disabled} onClick={()=>onChoice(id)}>{label}</button>)}</div>
-      {hidden ? <button className="button dice-roll-button" onClick={()=>setPopup(true)}>Mở cửa sổ · Kéo bát</button> : <button className="button dice-roll-button" disabled={disabled} onClick={()=>{move(0,0);setPopup(true);onRoll();}}>{ready ? `Đã mở · ×${result.multiplier}` : 'Tung xúc xắc · 5 Xu'}</button>}
+      {tr(scene())}
+      <div className="dice-copy"><strong>{tr(hidden || rolling ? 'Bát vẫn đang úp kín' : ready ? `${result.won === true ? 'Đoán đúng · ' : result.won === false ? 'Đoán trượt · ' : ''}May mắn ×${result.multiplier}` : 'Ba viên xúc xắc')}</strong><small>{tr(hidden ? 'Kéo bát trong cửa sổ để xem kết quả' : ready ? result.dice ? `${faces.join(' + ')} = ${result.total} · Tung lại sẽ thay may mắn này` : 'May mắn từ bản lưu' : 'Chọn Thấp, Giữa hoặc Cao rồi tung xúc xắc')}</small>
+      <div className="dice-choices" role="group" aria-label={tr("Dự đoán Thấp Giữa Cao")}>{tr(CHOICES.map(([id,label])=><button key={id} type="button" aria-pressed={choice===id} disabled={disabled} onClick={()=>onChoice(id)}>{label}</button>))}</div>
+      {tr(hidden ? <button className="button dice-roll-button" onClick={()=>setPopup(true)}>Mở cửa sổ · Kéo bát</button> : <button className="button dice-roll-button" disabled={disabled} onClick={()=>{move(0,0);setPopup(true);onRoll();}}>{ready ? 'Tung lại · 5 Xu' : 'Tung xúc xắc · 5 Xu'}</button>)}
       </div>
     </div>
-    {popup && <div className="dice-popup-backdrop" onKeyDown={e=>{
+    {tr(popup && <div className="dice-popup-backdrop" onKeyDown={e=>{
       if(e.key==='Escape') {e.stopPropagation(); if(!rolling) setPopup(false);}
       if(e.key==='Tab') {e.stopPropagation(); const nodes=dialog.current.querySelectorAll('button:not(:disabled)');const first=nodes[0],last=nodes[nodes.length-1]; if(!first){e.preventDefault();return;} if(e.shiftKey && (document.activeElement===first || document.activeElement===dialog.current)){e.preventDefault();last.focus();} else if(!e.shiftKey && (document.activeElement===last || document.activeElement===dialog.current)){e.preventDefault();first.focus();}}
     }}><section className={`dice-popup ${rolling ? 'is-shaking' : 'manual-cup'} ${hidden ? 'cup-hidden' : 'cup-revealed'}`} ref={dialog} role="dialog" aria-modal="true" aria-label="Mở bát xúc xắc" tabIndex={-1}>
@@ -52,7 +53,7 @@ export default function DiceCup({ result, rolling, disabled, onRoll, choice, onC
       <p>{rolling ? 'Bát đang lắc. Chờ một chút…' : hidden ? 'Giữ và kéo bát theo hướng bất kỳ để xem.' : `${result?.won ? 'Đoán đúng' : 'Đoán trượt'} · May mắn ×${result?.multiplier}`}</p>
       {scene(true)}
       <small>{hidden ? 'Bàn phím: chọn bát, dùng phím mũi tên hoặc Enter để mở.' : 'May mắn dùng cho một lượt cân tiếp theo.'}</small>
-      <button className="button primary full" disabled={rolling} onClick={()=>setPopup(false)}>{hidden ? 'Để nguyên bát · Quay lại' : 'Tiếp tục cân bùa'}</button>
-    </section></div>}
+      <button className="button primary full" disabled={rolling} onClick={()=>setPopup(false)}>{hidden ? 'Để nguyên bát · Quay lại' : 'Về bàn · Tung tiếp hoặc cân'}</button>
+    </section></div>)}
   </>;
 }

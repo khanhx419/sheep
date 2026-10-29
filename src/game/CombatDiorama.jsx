@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 import { useEffect, useRef, useState } from 'react';
 import * as T from 'three';
 import { createModelKit } from './worldModels.js';
@@ -47,5 +48,5 @@ export default function CombatDiorama({ type, turn, hp, reveal = false }) {
     frame = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); atmosphere.dispose(); kit.dispose(); key.shadow.map?.dispose(); renderer.dispose(); renderer.domElement.remove(); };
   }, [type, reveal]);
-  return <div className="combat-diorama" ref={host}>{failed && <div className="combat-scene-fallback">☾<span>Sói đang chờ ngoài sân trại.</span></div>}</div>;
+  return <div className="combat-diorama" ref={host}>{tr(failed && <div className="combat-scene-fallback">☾<span>Sói đang chờ ngoài sân trại.</span></div>)}</div>;
 }

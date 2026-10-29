@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 import './readableTheme.css';
 import { useEffect, useRef } from 'react';
 export const ART = '/assets/art';
@@ -20,13 +21,13 @@ export function Icon({ name, size = 20 }) {
     home: <path d="m2 11 10-9 10 9M5 9v12h14V9m-10 12v-7h6v7" />,
     check: <path d="m5 12 4 4L20 5" />,
   };
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.sheep}</svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{tr(paths[name] || paths.sheep)}</svg>;
 }
 export function Animal({ animal, large = false }) {
-  return <span className={`animal-art ${large ? 'large' : ''}`}><img src={`${ART}/sheep.png`} alt="" draggable="false" />
-    {animal?.wolf && animal.tell === 'eyes' && <i className="tell tell-eyes" />}
-    {animal?.wolf && animal.tell === 'paws' && <i className="tell tell-paws"><b /><b /><b /></i>}
-    {animal?.wolf && animal.tell === 'tail' && <i className="tell tell-tail" />}
+  return <span className={`animal-art ${large ? 'large' : ''}`}><img src={`${ART}/sheep.png`} alt={tr("")} draggable="false" />
+    {tr(animal?.wolf && animal.tell === 'eyes' && <i className="tell tell-eyes" />)}
+    {tr(animal?.wolf && animal.tell === 'paws' && <i className="tell tell-paws"><b /><b /><b /></i>)}
+    {tr(animal?.wolf && animal.tell === 'tail' && <i className="tell tell-tail" />)}
   </span>;
 }
 export function Modal({ title, onClose, children, className = '' }) {
@@ -49,5 +50,5 @@ export function Modal({ title, onClose, children, className = '' }) {
     document.addEventListener('keydown', key);
     return () => { document.removeEventListener('keydown', key); previous?.focus(); };
   }, []);
-  return <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose?.()}><section className={`modal ${className}`} ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}><div className="modal-heading"><span className="eyebrow">{title}</span>{onClose && <button className="icon-button" aria-label="Đóng" onClick={onClose}><Icon name="close" /></button>}</div>{children}</section></div>;
+  return <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose?.()}><section className={`modal ${className}`} ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={tr(title)}><div className="modal-heading"><span className="eyebrow">{tr(title)}</span>{tr(onClose && <button className="icon-button" aria-label="Đóng" onClick={onClose}><Icon name="close" /></button>)}</div>{tr(children)}</section></div>;
 }
